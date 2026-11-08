@@ -61,6 +61,7 @@ export class Database {
         lock_version INTEGER NOT NULL DEFAULT 1,
         max_participants INTEGER NOT NULL DEFAULT 50,
         is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        waiting_room_enabled BOOLEAN NOT NULL DEFAULT FALSE,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );

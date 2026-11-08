@@ -11,7 +11,9 @@
     "dev": "concurrently --names \"SERVER,CLIENT\" -c \"bgBlue.bold,bgGreen.bold\" \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "npm --workspace=@conversio/server run dev",
     "dev:client": "npm --workspace=@conversio/client run dev",
-    "test:server": "npm --workspace=@conversio/server run test"
+    "test:server": "npm --workspace=@conversio/server run test",
+    "db:migrate": "npm --workspace=@conversio/server run db:migrate",
+    "db:seed": "npm --workspace=@conversio/server run db:seed"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
