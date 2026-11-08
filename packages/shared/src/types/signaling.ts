@@ -1,4 +1,4 @@
-import { Participant, Room, RoomLockState } from './room.js';
+import { BreakoutRoom, Participant, Room, RoomLockState } from './room.js';
 
 export enum SignalingEvent {
   // Connection & Room Lifecycle
@@ -38,6 +38,15 @@ export enum SignalingEvent {
 
   // Network Quality Monitoring
   NETWORK_QUALITY = 'signal:network_quality',
+
+  // Local Recording & Audio Analysis
+  RECORDING_STATUS = 'signal:recording_status',
+  ACTIVE_SPEAKER = 'signal:active_speaker',
+
+  // Breakout Rooms
+  BREAKOUT_ROOMS_UPDATE = 'signal:breakout_rooms_update',
+  BREAKOUT_BROADCAST = 'signal:breakout_broadcast',
+  BREAKOUT_CLOSE = 'signal:breakout_close',
 
   // Status & Exceptions
   ERROR = 'signal:error',
@@ -174,5 +183,36 @@ export interface NetworkQualityPayload {
   userId: string;
   quality: 'excellent' | 'fair' | 'poor';
 }
+
+export interface RecordingStatusPayload {
+  roomId: string;
+  isRecording: boolean;
+  recorderName: string;
+  timestamp: string;
+}
+
+export interface ActiveSpeakerPayload {
+  roomId: string;
+  speakerId: string;
+  speakerName: string;
+}
+
+export interface BreakoutRoomsUpdatePayload {
+  roomId: string;
+  rooms: BreakoutRoom[];
+  isOpen: boolean;
+}
+
+export interface BreakoutBroadcastPayload {
+  roomId: string;
+  message: string;
+  senderName: string;
+}
+
+export interface BreakoutClosePayload {
+  roomId: string;
+  countdownSeconds: number;
+}
+
 
 

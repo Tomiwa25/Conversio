@@ -11,11 +11,13 @@ const createRoomSchema = z.object({
   hostId: z.string().min(1, 'Host ID is required'),
   hostName: z.string().min(1).default('Host'),
   maxParticipants: z.number().int().positive().max(500).optional(),
+  passcode: z.string().optional(),
 });
 
 const joinRoomSchema = z.object({
   name: z.string().min(1, 'Participant name is required'),
   userId: z.string().optional(),
+  passcode: z.string().optional(),
 });
 
 const lockRoomSchema = z.object({
@@ -89,6 +91,26 @@ roomRouter.post('/:id/join', async (req: Request, res: Response) => {
       code: 'ROOM_LOCKED',
     });
     return;
+  }
+
+  // Pre-join passcode verification
+  if (room.isPasscodeProtected) {
+    if (!parseResult.data.passcode) {
+      res.status(401).json({
+        error: 'A passcode is required to join this meeting.',
+        code: 'PASSCODE_REQUIRED',
+      });
+      return;
+    }
+
+    const isPasscodeValid = await roomService.verifyRoomPasscode(roomId, parseResult.data.passcode);
+    if (!isPasscodeValid) {
+      res.status(401).json({
+        error: 'The meeting passcode you entered is incorrect.',
+        code: 'INVALID_PASSCODE',
+      });
+      return;
+    }
   }
 
   const userId = parseResult.data.userId || `user-${crypto.randomUUID().slice(0, 8)}`;

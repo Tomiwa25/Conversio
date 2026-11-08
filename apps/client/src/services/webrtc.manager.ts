@@ -1,6 +1,11 @@
 import { io, Socket } from 'socket.io-client';
 import {
+  ActiveSpeakerPayload,
   AdmitParticipantPayload,
+  BreakoutBroadcastPayload,
+  BreakoutClosePayload,
+  BreakoutRoom,
+  BreakoutRoomsUpdatePayload,
   ChatMessage,
   IceCandidatePayload,
   JoinRoomPayload,
@@ -9,6 +14,7 @@ import {
   Participant,
   RaiseHandPayload,
   ReactionPayload,
+  RecordingStatusPayload,
   RemoveParticipantPayload,
   Room,
   RoomLockState,
@@ -52,6 +58,21 @@ export interface WebRTCState {
   waitingParticipants: WaitingParticipant[];
   isRemovedByHost: boolean;
   hostMutedNotification: boolean;
+
+  // Active Speaker & In-Meeting Recording
+  activeSpeakerId: string | null;
+  isRecording: boolean;
+  recorderName: string | null;
+
+  // Background Blur Video Filter
+  isBackgroundBlurEnabled: boolean;
+
+  // Breakout Rooms
+  breakoutRooms: BreakoutRoom[];
+  isBreakoutOpen: boolean;
+  currentBreakoutRoomId: string | null;
+  breakoutAnnouncement: string | null;
+  breakoutClosingCountdown: number | null;
 
   // Hardware Device Selection
   selectedAudioInputId: string | null;
@@ -109,6 +130,21 @@ export class WebRTCConnectionManager {
   private pointerListeners: Set<PointerListener> = new Set();
   private fileListeners: Set<FileChunkListener> = new Set();
 
+  // Active Speaker Voice Activity Detection (VAD)
+  private audioContext: AudioContext | null = null;
+  private localAudioSource: MediaStreamAudioSourceNode | null = null;
+  private audioAnalyser: AnalyserNode | null = null;
+  private activeSpeakerInterval: ReturnType<typeof setInterval> | null = null;
+  private lastSpeakerEmitTime: number = 0;
+  private consecutiveSilenceCount: number = 0;
+
+  // Background Blur Canvas Engine
+  private rawCameraTrack: MediaStreamTrack | null = null;
+  private blurCanvas: HTMLCanvasElement | null = null;
+  private blurVideo: HTMLVideoElement | null = null;
+  private blurAnimationId: number | null = null;
+  private breakoutCloseInterval: ReturnType<typeof setInterval> | null = null;
+
   private state: WebRTCState = {
     roomId: null,
     room: null,
@@ -138,6 +174,18 @@ export class WebRTCConnectionManager {
     waitingParticipants: [],
     isRemovedByHost: false,
     hostMutedNotification: false,
+
+    activeSpeakerId: null,
+    isRecording: false,
+    recorderName: null,
+
+    isBackgroundBlurEnabled: false,
+
+    breakoutRooms: [],
+    isBreakoutOpen: false,
+    currentBreakoutRoomId: null,
+    breakoutAnnouncement: null,
+    breakoutClosingCountdown: null,
 
     selectedAudioInputId: null,
     selectedVideoInputId: null,
@@ -260,6 +308,7 @@ export class WebRTCConnectionManager {
 
     this.setupSignalingHandlers(roomId, participant, token);
     this.startNetworkQualityMonitoring();
+    this.startActiveSpeakerMonitoring();
   }
 
   private setupSignalingHandlers(
@@ -485,6 +534,44 @@ export class WebRTCConnectionManager {
     // Pointer move fallback
     this.socket.on(SignalingEvent.POINTER_MOVE, (pointer: WhiteboardPointer) => {
       this.pointerListeners.forEach((l) => l(pointer));
+    });
+
+    // In-Meeting Recording Status Broadcast
+    this.socket.on(SignalingEvent.RECORDING_STATUS, (payload: RecordingStatusPayload) => {
+      this.updateState({
+        isRecording: payload.isRecording,
+        recorderName: payload.isRecording ? payload.recorderName : null,
+      });
+    });
+
+    // Active Speaker Spotlight Broadcast
+    this.socket.on(SignalingEvent.ACTIVE_SPEAKER, (payload: ActiveSpeakerPayload) => {
+      this.updateState({
+        activeSpeakerId: payload.speakerId,
+      });
+    });
+
+    // Breakout Rooms Sync
+    this.socket.on(SignalingEvent.BREAKOUT_ROOMS_UPDATE, (payload: BreakoutRoomsUpdatePayload) => {
+      this.updateState({
+        breakoutRooms: payload.rooms,
+        isBreakoutOpen: payload.isOpen,
+      });
+    });
+
+    // Breakout Rooms Host Announcement Broadcast
+    this.socket.on(SignalingEvent.BREAKOUT_BROADCAST, (payload: BreakoutBroadcastPayload) => {
+      this.updateState({
+        breakoutAnnouncement: `${payload.senderName}: ${payload.message}`,
+      });
+      setTimeout(() => {
+        this.updateState({ breakoutAnnouncement: null });
+      }, 7000);
+    });
+
+    // Breakout Rooms Closing Timer
+    this.socket.on(SignalingEvent.BREAKOUT_CLOSE, (payload: BreakoutClosePayload) => {
+      this.handleBreakoutClosing(payload.countdownSeconds);
     });
 
     // Signaling error / Access denied
@@ -1226,8 +1313,334 @@ export class WebRTCConnectionManager {
     this.ignoreOffer.delete(peerId);
   }
 
+  /**
+   * Broadcast in-meeting recording status to all peers in the room
+   */
+  public broadcastRecordingStatus(isRecording: boolean): void {
+    if (!this.socket || !this.state.roomId) return;
+
+    const payload: RecordingStatusPayload = {
+      roomId: this.state.roomId,
+      isRecording,
+      recorderName: this.state.currentUser?.name || 'You',
+      timestamp: new Date().toISOString(),
+    };
+
+    this.socket.emit(SignalingEvent.RECORDING_STATUS, payload);
+    this.updateState({
+      isRecording,
+      recorderName: isRecording ? (this.state.currentUser?.name || 'You') : null,
+    });
+  }
+
+  /**
+   * Active Speaker Voice Activity Detection (VAD) via Web Audio API AnalyserNode
+   */
+  public startActiveSpeakerMonitoring(): void {
+    if (typeof window === 'undefined') return;
+    this.stopActiveSpeakerMonitoring();
+
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      this.audioContext = new AudioCtx();
+      this.audioAnalyser = this.audioContext.createAnalyser();
+      this.audioAnalyser.fftSize = 256;
+      this.audioAnalyser.smoothingTimeConstant = 0.4;
+
+      if (this.state.localStream && this.state.localStream.getAudioTracks().length > 0) {
+        try {
+          this.localAudioSource = this.audioContext.createMediaStreamSource(this.state.localStream);
+          this.localAudioSource.connect(this.audioAnalyser);
+        } catch (e) {
+          console.warn('[WebRTC] Could not connect local audio stream to analyser:', e);
+        }
+      }
+
+      const pcmData = new Uint8Array(this.audioAnalyser.frequencyBinCount);
+
+      this.activeSpeakerInterval = setInterval(() => {
+        if (!this.audioAnalyser || this.state.isAudioMuted || !this.state.localStream) {
+          return;
+        }
+
+        this.audioAnalyser.getByteFrequencyData(pcmData);
+        let sum = 0;
+        for (let i = 0; i < pcmData.length; i++) {
+          sum += pcmData[i];
+        }
+        const average = sum / pcmData.length;
+
+        // Audible speech threshold (average RMS frequency volume > 20)
+        const isSpeaking = average > 20;
+
+        if (isSpeaking) {
+          this.consecutiveSilenceCount = 0;
+          const now = Date.now();
+          const localUserId = this.state.currentUser?.id;
+
+          if (localUserId && (this.state.activeSpeakerId !== localUserId || now - this.lastSpeakerEmitTime > 2500)) {
+            this.lastSpeakerEmitTime = now;
+            this.updateState({ activeSpeakerId: localUserId });
+
+            if (this.socket && this.state.roomId) {
+              const payload: ActiveSpeakerPayload = {
+                roomId: this.state.roomId,
+                speakerId: localUserId,
+                speakerName: this.state.currentUser?.name || 'Speaker',
+              };
+              this.socket.emit(SignalingEvent.ACTIVE_SPEAKER, payload);
+            }
+          }
+        } else {
+          this.consecutiveSilenceCount++;
+        }
+      }, 200);
+    } catch (e) {
+      console.warn('[WebRTC] Active speaker detection initialization skipped:', e);
+    }
+  }
+
+  public stopActiveSpeakerMonitoring(): void {
+    if (this.activeSpeakerInterval) {
+      clearInterval(this.activeSpeakerInterval);
+      this.activeSpeakerInterval = null;
+    }
+    if (this.localAudioSource) {
+      try {
+        this.localAudioSource.disconnect();
+      } catch {}
+      this.localAudioSource = null;
+    }
+    if (this.audioContext && this.audioContext.state !== 'closed') {
+      this.audioContext.close().catch(() => {});
+      this.audioContext = null;
+    }
+    this.audioAnalyser = null;
+  }
+
+  /**
+   * Virtual Background & Background Blur Canvas Compositor
+   */
+  public async toggleBackgroundBlur(
+    enabled?: boolean,
+    effect: 'blur' | 'office' | 'gradient' = 'blur'
+  ): Promise<boolean> {
+    const nextState = enabled !== undefined ? enabled : !this.state.isBackgroundBlurEnabled;
+
+    if (!nextState) {
+      await this.stopBackgroundBlur();
+      return false;
+    }
+
+    if (!this.state.localStream) return false;
+    const currentVideoTrack = this.state.localStream.getVideoTracks()[0];
+    if (!currentVideoTrack) return false;
+
+    if (!this.rawCameraTrack) {
+      this.rawCameraTrack = currentVideoTrack;
+    }
+
+    if (!this.blurCanvas) {
+      this.blurCanvas = document.createElement('canvas');
+      this.blurCanvas.width = 1280;
+      this.blurCanvas.height = 720;
+    }
+    if (!this.blurVideo) {
+      this.blurVideo = document.createElement('video');
+      this.blurVideo.autoplay = true;
+      this.blurVideo.playsInline = true;
+      this.blurVideo.muted = true;
+    }
+
+    this.blurVideo.srcObject = new MediaStream([this.rawCameraTrack]);
+    await this.blurVideo.play().catch(() => {});
+
+    const ctx = this.blurCanvas.getContext('2d');
+    if (!ctx) return false;
+
+    const canvas = this.blurCanvas;
+    const video = this.blurVideo;
+
+    const render = () => {
+      if (video.readyState >= 2) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (effect === 'gradient') {
+          const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+          grad.addColorStop(0, '#0f172a');
+          grad.addColorStop(0.5, '#1e293b');
+          grad.addColorStop(1, '#334155');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        } else if (effect === 'office') {
+          const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
+          grad.addColorStop(0, '#111827');
+          grad.addColorStop(0.5, '#1f2937');
+          grad.addColorStop(1, '#111827');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        } else {
+          ctx.save();
+          ctx.filter = 'blur(16px) brightness(0.9)';
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          ctx.restore();
+        }
+
+        // Composite center focused subject
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(
+          canvas.width / 2,
+          canvas.height / 2 + 40,
+          canvas.width * 0.28,
+          canvas.height * 0.42,
+          0,
+          0,
+          Math.PI * 2
+        );
+        ctx.clip();
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.restore();
+      }
+      this.blurAnimationId = requestAnimationFrame(render);
+    };
+
+    if (this.blurAnimationId) {
+      cancelAnimationFrame(this.blurAnimationId);
+    }
+    this.blurAnimationId = requestAnimationFrame(render);
+
+    const processedCanvasStream = (canvas as any).captureStream ? (canvas as any).captureStream(30) : null;
+    if (processedCanvasStream) {
+      const canvasTrack = processedCanvasStream.getVideoTracks()[0];
+      if (canvasTrack) {
+        for (const pc of this.peerConnections.values()) {
+          const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
+          if (sender) {
+            await sender.replaceTrack(canvasTrack);
+          }
+        }
+
+        const audioTracks = this.state.localStream.getAudioTracks();
+        this.updateState({
+          isBackgroundBlurEnabled: true,
+          localStream: new MediaStream([...audioTracks, canvasTrack]),
+        });
+        return true;
+      }
+    }
+
+    this.updateState({ isBackgroundBlurEnabled: true });
+    return true;
+  }
+
+  public async stopBackgroundBlur(): Promise<void> {
+    if (this.blurAnimationId) {
+      cancelAnimationFrame(this.blurAnimationId);
+      this.blurAnimationId = null;
+    }
+
+    if (this.blurVideo) {
+      this.blurVideo.srcObject = null;
+    }
+
+    if (this.rawCameraTrack) {
+      for (const pc of this.peerConnections.values()) {
+        const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
+        if (sender) {
+          await sender.replaceTrack(this.rawCameraTrack);
+        }
+      }
+
+      if (this.state.localStream) {
+        const audioTracks = this.state.localStream.getAudioTracks();
+        this.updateState({
+          localStream: new MediaStream([...audioTracks, this.rawCameraTrack]),
+          isBackgroundBlurEnabled: false,
+        });
+      } else {
+        this.updateState({ isBackgroundBlurEnabled: false });
+      }
+      this.rawCameraTrack = null;
+    } else {
+      this.updateState({ isBackgroundBlurEnabled: false });
+    }
+  }
+
+  /**
+   * Breakout Rooms Controls
+   */
+  public createBreakoutRooms(rooms: BreakoutRoom[]): void {
+    if (!this.socket || !this.state.roomId) return;
+    const payload: BreakoutRoomsUpdatePayload = {
+      roomId: this.state.roomId,
+      rooms,
+      isOpen: true,
+    };
+    this.socket.emit(SignalingEvent.BREAKOUT_ROOMS_UPDATE, payload);
+    this.updateState({ breakoutRooms: rooms, isBreakoutOpen: true });
+  }
+
+  public joinBreakoutRoom(breakoutRoomId: string | null): void {
+    this.updateState({ currentBreakoutRoomId: breakoutRoomId });
+  }
+
+  public broadcastBreakoutAnnouncement(message: string): void {
+    if (!this.socket || !this.state.roomId) return;
+    const payload: BreakoutBroadcastPayload = {
+      roomId: this.state.roomId,
+      senderName: this.state.currentUser?.name || 'Host',
+      message,
+    };
+    this.socket.emit(SignalingEvent.BREAKOUT_BROADCAST, payload);
+  }
+
+  public closeBreakoutRooms(countdownSeconds = 60): void {
+    if (!this.socket || !this.state.roomId) return;
+    const payload: BreakoutClosePayload = {
+      roomId: this.state.roomId,
+      countdownSeconds,
+    };
+    this.socket.emit(SignalingEvent.BREAKOUT_CLOSE, payload);
+    this.handleBreakoutClosing(countdownSeconds);
+  }
+
+  private handleBreakoutClosing(countdownSeconds: number): void {
+    if (this.breakoutCloseInterval) {
+      clearInterval(this.breakoutCloseInterval);
+      this.breakoutCloseInterval = null;
+    }
+
+    let remaining = countdownSeconds;
+    this.updateState({ breakoutClosingCountdown: remaining });
+
+    this.breakoutCloseInterval = setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        if (this.breakoutCloseInterval) {
+          clearInterval(this.breakoutCloseInterval);
+          this.breakoutCloseInterval = null;
+        }
+        this.updateState({
+          currentBreakoutRoomId: null,
+          isBreakoutOpen: false,
+          breakoutClosingCountdown: null,
+        });
+      } else {
+        this.updateState({ breakoutClosingCountdown: remaining });
+      }
+    }, 1000);
+  }
+
   public disconnect(): void {
     this.stopNetworkQualityMonitoring();
+    this.stopActiveSpeakerMonitoring();
+    this.stopBackgroundBlur();
+    if (this.breakoutCloseInterval) {
+      clearInterval(this.breakoutCloseInterval);
+      this.breakoutCloseInterval = null;
+    }
 
     if (this.state.screenStream) {
       this.state.screenStream.getTracks().forEach((t) => t.stop());
@@ -1253,6 +1666,15 @@ export class WebRTCConnectionManager {
       roomId: null,
       room: null,
       isWaitingRoom: false,
+      activeSpeakerId: null,
+      isRecording: false,
+      recorderName: null,
+      isBackgroundBlurEnabled: false,
+      currentBreakoutRoomId: null,
+      breakoutRooms: [],
+      isBreakoutOpen: false,
+      breakoutAnnouncement: null,
+      breakoutClosingCountdown: null,
     });
   }
 }

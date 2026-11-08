@@ -29,11 +29,13 @@ export default function LobbyPage() {
   // New Meeting State
   const [meetingTopic, setMeetingTopic] = useState('');
   const [hostName, setHostName] = useState('');
+  const [meetingPasscode, setMeetingPasscode] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
   // Join Meeting State
   const [joinMeetingId, setJoinMeetingId] = useState('');
   const [participantName, setParticipantName] = useState('');
+  const [joinPasscode, setJoinPasscode] = useState('');
   const [isJoining, setIsJoining] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -79,6 +81,7 @@ export default function LobbyPage() {
           title: meetingTopic.trim(),
           hostId,
           hostName: effectiveHostName,
+          passcode: meetingPasscode.trim() || undefined,
         }),
       });
 
@@ -125,6 +128,7 @@ export default function LobbyPage() {
         body: JSON.stringify({
           name: effectiveName,
           userId: user?.id,
+          passcode: joinPasscode.trim() || undefined,
         }),
       });
 
@@ -284,6 +288,20 @@ export default function LobbyPage() {
                     />
                   )}
                 </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-medium text-slate-300">Meeting Passcode</label>
+                    <span className="text-[10px] text-slate-400">Optional</span>
+                  </div>
+                  <input
+                    type="password"
+                    maxLength={6}
+                    placeholder="e.g. 123456"
+                    value={meetingPasscode}
+                    onChange={(e) => setMeetingPasscode(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500 transition tracking-wider font-mono"
+                  />
+                </div>
                 <button
                   type="submit"
                   disabled={isCreating}
@@ -328,6 +346,20 @@ export default function LobbyPage() {
                     value={participantName}
                     onChange={(e) => setParticipantName(e.target.value)}
                     className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-indigo-500 transition"
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-medium text-slate-300">Meeting Passcode</label>
+                    <span className="text-[10px] text-slate-400">If required by host</span>
+                  </div>
+                  <input
+                    type="password"
+                    maxLength={6}
+                    placeholder="6-digit passcode"
+                    value={joinPasscode}
+                    onChange={(e) => setJoinPasscode(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-indigo-500 transition tracking-wider font-mono"
                   />
                 </div>
                 <button

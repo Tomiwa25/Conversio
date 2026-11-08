@@ -7,7 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "tsx src/tests/verify-idempotency.ts && tsx src/tests/verify-auth.ts",
+    "test": "tsx src/tests/verify-idempotency.ts && tsx src/tests/verify-auth.ts && tsx src/tests/verify-passcode.ts",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts"
   },

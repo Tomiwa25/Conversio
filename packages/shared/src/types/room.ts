@@ -28,12 +28,20 @@ export interface Room {
   maxParticipants: number;
   isActive: boolean;
   waitingRoomEnabled?: boolean;
+  isPasscodeProtected?: boolean;
+}
+
+export interface BreakoutRoom {
+  id: string;
+  name: string;
+  participantIds: string[];
 }
 
 export interface CreateRoomDto {
   title: string;
   hostId: string;
   maxParticipants?: number;
+  passcode?: string;
 }
 
 export interface LockRoomDto {

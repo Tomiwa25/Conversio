@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useWebRTC } from '../context/webrtc.context';
+import { recordingManager, RecordingState } from '../services/recording.manager';
 import {
   Mic,
   MicOff,
@@ -25,6 +26,10 @@ import {
   Settings,
   ShieldCheck,
   ShieldAlert,
+  DoorOpen,
+  Circle,
+  Square,
+  Sparkles,
 } from 'lucide-react';
 
 const REACTION_EMOJIS = ['👍', '👏', '❤️', '😂', '🎉', '😮'];
@@ -38,6 +43,8 @@ export const RoomControls: React.FC<{
   isChatOpen: boolean;
   onToggleParticipants: () => void;
   isParticipantsOpen: boolean;
+  onToggleBreakoutRooms: () => void;
+  isBreakoutRoomsOpen: boolean;
   onOpenSettings: (tab?: 'audio' | 'video') => void;
 }> = ({
   onToggleWhiteboard,
@@ -48,11 +55,20 @@ export const RoomControls: React.FC<{
   isChatOpen,
   onToggleParticipants,
   isParticipantsOpen,
+  onToggleBreakoutRooms,
+  isBreakoutRoomsOpen,
   onOpenSettings,
 }) => {
   const { manager, state } = useWebRTC();
   const [copied, setCopied] = useState(false);
   const [isLocking, setIsLocking] = useState(false);
+  const [recordingState, setRecordingState] = useState<RecordingState>(recordingManager.getState());
+
+  useEffect(() => {
+    return recordingManager.subscribe((recState) => {
+      setRecordingState(recState);
+    });
+  }, []);
 
   // Popover menus state
   const [isAudioMenuOpen, setIsAudioMenuOpen] = useState(false);
@@ -122,6 +138,26 @@ export const RoomControls: React.FC<{
     setIsReactionsMenuOpen(false);
   };
 
+  const handleToggleRecording = async () => {
+    if (recordingState.isRecording) {
+      recordingManager.stopRecording();
+      manager.broadcastRecordingStatus(false);
+    } else {
+      await recordingManager.startRecording({
+        videoStream: state.screenStream || state.localStream,
+        localAudioStream: state.localStream,
+        remoteAudioStreams: Array.from(state.remoteStreams.values()),
+      });
+      manager.broadcastRecordingStatus(true);
+    }
+  };
+
+  const formatElapsed = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const handleLeaveMeeting = () => {
     manager.disconnect();
     if (typeof window !== 'undefined') {
@@ -156,6 +192,16 @@ export const RoomControls: React.FC<{
             <Lock className="w-3 h-3" />
             <span>Locked</span>
           </span>
+        )}
+
+        {(state.isRecording || recordingState.isRecording) && (
+          <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-rose-600/20 border border-rose-500/40 text-rose-400 text-xs font-semibold animate-pulse shadow-sm">
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+            <span>REC {recordingState.isRecording ? formatElapsed(recordingState.elapsedSeconds) : 'RECORDING'}</span>
+            {state.recorderName && !recordingState.isRecording && (
+              <span className="text-[10px] text-slate-400 font-normal hidden xl:inline">({state.recorderName})</span>
+            )}
+          </div>
         )}
       </div>
 
@@ -251,6 +297,24 @@ export const RoomControls: React.FC<{
                 <Settings className="w-3.5 h-3.5 text-blue-400" />
                 <span>Video Settings...</span>
               </button>
+
+              <div className="pt-1 mt-1 border-t border-slate-800">
+                <button
+                  onClick={() => {
+                    manager.toggleBackgroundBlur();
+                    setIsVideoMenuOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-xl text-xs text-slate-200 hover:bg-slate-800 flex items-center justify-between transition"
+                >
+                  <div className="flex items-center space-x-2">
+                    <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Blur Background</span>
+                  </div>
+                  <span className={`text-[10px] font-semibold ${state.isBackgroundBlurEnabled ? 'text-blue-400' : 'text-slate-500'}`}>
+                    {state.isBackgroundBlurEnabled ? 'ON' : 'OFF'}
+                  </span>
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -367,6 +431,43 @@ export const RoomControls: React.FC<{
         >
           {state.isScreenSharing ? <MonitorOff className="w-4 h-4 md:w-5 md:h-5" /> : <MonitorUp className="w-4 h-4 md:w-5 md:h-5" />}
           <span className="text-[10px] mt-0.5 font-medium">{state.isScreenSharing ? 'Sharing' : 'Share'}</span>
+        </button>
+
+        {/* Local In-Meeting Recording */}
+        <button
+          onClick={handleToggleRecording}
+          className={`flex flex-col items-center justify-center w-12 md:w-14 h-14 rounded-2xl transition shadow-md ${
+            recordingState.isRecording
+              ? 'bg-rose-600 hover:bg-rose-500 text-white animate-pulse'
+              : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+          }`}
+          title={recordingState.isRecording ? 'Stop Recording' : 'Record Meeting to Computer'}
+        >
+          {recordingState.isRecording ? (
+            <Square className="w-4 h-4 md:w-5 md:h-5 fill-current" />
+          ) : (
+            <Circle className="w-4 h-4 md:w-5 md:h-5 text-rose-400 fill-rose-500/30" />
+          )}
+          <span className="text-[10px] mt-0.5 font-medium">
+            {recordingState.isRecording ? 'Stop' : 'Record'}
+          </span>
+        </button>
+
+        {/* Small Group Breakouts */}
+        <button
+          onClick={onToggleBreakoutRooms}
+          className={`flex flex-col items-center justify-center w-12 md:w-14 h-14 rounded-2xl transition shadow-md relative ${
+            isBreakoutRoomsOpen || state.isBreakoutOpen
+              ? 'bg-blue-600 hover:bg-blue-500 text-white'
+              : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+          }`}
+          title="Small Group Discussions"
+        >
+          {state.isBreakoutOpen && (
+            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+          )}
+          <DoorOpen className="w-4 h-4 md:w-5 md:h-5" />
+          <span className="text-[10px] mt-0.5 font-medium">Groups</span>
         </button>
 
         {/* Reactions / Raise Hand Popover */}

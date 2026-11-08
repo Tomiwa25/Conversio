@@ -1,29 +1,42 @@
 import crypto from 'node:crypto';
+import bcrypt from 'bcryptjs';
 import { CreateRoomDto, LockRoomDto, Room, RoomActionResponse } from '@conversio/shared';
 import { db } from '../db.js';
 
 export class RoomService {
   private memoryRooms: Map<string, Room> = new Map();
+  private memoryPasscodes: Map<string, string> = new Map();
 
   public async createRoom(dto: CreateRoomDto): Promise<Room> {
     const roomId = crypto.randomUUID();
     const now = new Date().toISOString();
-
     const pool = db.getPool();
+
+    let passcodeHash: string | null = null;
+    if (dto.passcode && dto.passcode.trim()) {
+      passcodeHash = await bcrypt.hash(dto.passcode.trim(), 10);
+    }
+
     if (pool) {
       try {
         const query = `
-          INSERT INTO rooms (id, title, host_id, is_locked, lock_version, max_participants, is_active, created_at, updated_at)
-          VALUES ($1, $2, $3, false, 1, $4, true, NOW(), NOW())
+          INSERT INTO rooms (id, title, host_id, is_locked, lock_version, max_participants, is_active, passcode_hash, created_at, updated_at)
+          VALUES ($1, $2, $3, false, 1, $4, true, $5, NOW(), NOW())
           RETURNING *;
         `;
-        const res = await pool.query(query, [roomId, dto.title.trim(), dto.hostId, dto.maxParticipants || 50]);
+        const res = await pool.query(query, [
+          roomId,
+          dto.title.trim(),
+          dto.hostId,
+          dto.maxParticipants || 50,
+          passcodeHash,
+        ]);
         const row = res.rows[0];
 
         // Audit Event
         await pool.query(
           `INSERT INTO room_events (room_id, event_type, actor_id, metadata) VALUES ($1, 'ROOM_CREATED', $2, $3)`,
-          [roomId, dto.hostId, JSON.stringify({ title: dto.title })]
+          [roomId, dto.hostId, JSON.stringify({ title: dto.title, passcodeProtected: Boolean(passcodeHash) })]
         );
 
         return {
@@ -37,10 +50,15 @@ export class RoomService {
           },
           maxParticipants: row.max_participants,
           isActive: row.is_active,
+          isPasscodeProtected: Boolean(row.passcode_hash),
         };
       } catch (err) {
         console.warn('[RoomService] PostgreSQL createRoom failed, falling back to memory:', err);
       }
+    }
+
+    if (passcodeHash) {
+      this.memoryPasscodes.set(roomId, passcodeHash);
     }
 
     const room: Room = {
@@ -54,6 +72,7 @@ export class RoomService {
       },
       maxParticipants: dto.maxParticipants || 50,
       isActive: true,
+      isPasscodeProtected: Boolean(passcodeHash),
     };
 
     this.memoryRooms.set(roomId, room);
@@ -80,32 +99,67 @@ export class RoomService {
           },
           maxParticipants: row.max_participants,
           isActive: row.is_active,
+          isPasscodeProtected: Boolean(row.passcode_hash),
         };
       } catch (err) {
         console.warn('[RoomService] PostgreSQL getRoom failed, falling back to memory:', err);
       }
     }
 
-    return this.memoryRooms.get(roomId) || null;
+    const mem = this.memoryRooms.get(roomId);
+    if (mem) {
+      return {
+        ...mem,
+        isPasscodeProtected: this.memoryPasscodes.has(roomId),
+      };
+    }
+
+    return null;
+  }
+
+  public async verifyRoomPasscode(roomId: string, passcode?: string): Promise<boolean> {
+    const pool = db.getPool();
+    let storedHash: string | null = null;
+
+    if (pool) {
+      try {
+        const res = await pool.query('SELECT passcode_hash FROM rooms WHERE id = $1', [roomId]);
+        if (res.rows.length > 0) {
+          storedHash = res.rows[0].passcode_hash;
+        }
+      } catch (e) {
+        console.warn('[RoomService] Passcode lookup query failed:', e);
+      }
+    }
+
+    if (!storedHash) {
+      storedHash = this.memoryPasscodes.get(roomId) || null;
+    }
+
+    // If room is not passcode protected, admission granted
+    if (!storedHash) return true;
+
+    // If passcode protected but no passcode supplied, denied
+    if (!passcode) return false;
+
+    return bcrypt.compare(passcode.trim(), storedHash);
   }
 
   public async setRoomLock(roomId: string, dto: LockRoomDto): Promise<RoomActionResponse> {
     const pool = db.getPool();
     if (pool) {
       try {
-        // 1. Fetch current room
         const existingRes = await pool.query('SELECT * FROM rooms WHERE id = $1', [roomId]);
         if (existingRes.rows.length === 0) {
           return { success: false, error: 'Room not found' };
         }
+
         const existing = existingRes.rows[0];
 
-        // 2. Authorization check
         if (existing.host_id !== dto.userId) {
           return { success: false, error: 'Only the room host can lock or unlock this room' };
         }
 
-        // 3. Optimistic Concurrency Control (OCC) check
         if (existing.lock_version !== dto.expectedVersion) {
           return {
             success: false,
@@ -114,7 +168,6 @@ export class RoomService {
           };
         }
 
-        // 4. Atomic conditional update
         const updateQuery = `
           UPDATE rooms
           SET is_locked = $1, locked_by = $2, locked_at = $3, lock_version = lock_version + 1, updated_at = NOW()
@@ -142,7 +195,6 @@ export class RoomService {
 
         const updated = updateRes.rows[0];
 
-        // Audit Event
         await pool.query(
           `INSERT INTO room_events (room_id, event_type, actor_id, metadata) VALUES ($1, $2, $3, $4)`,
           [
@@ -168,6 +220,7 @@ export class RoomService {
             },
             maxParticipants: updated.max_participants,
             isActive: updated.is_active,
+            isPasscodeProtected: Boolean(updated.passcode_hash),
           },
         };
       } catch (err) {
@@ -175,7 +228,6 @@ export class RoomService {
       }
     }
 
-    // In-memory fallback
     const room = this.memoryRooms.get(roomId);
     if (!room) {
       return { success: false, error: 'Room not found' };

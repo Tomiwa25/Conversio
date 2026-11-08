@@ -10,6 +10,7 @@ import { FileShare } from '../../../components/FileShare';
 import { ChatDrawer } from '../../../components/ChatDrawer';
 import { ParticipantsDrawer } from '../../../components/ParticipantsDrawer';
 import { DeviceSettingsModal } from '../../../components/DeviceSettingsModal';
+import { BreakoutRoomsModal } from '../../../components/BreakoutRoomsModal';
 import { VirtualWaitingRoom } from '../../../components/VirtualWaitingRoom';
 import { Loader2, Lock, ArrowLeft, MicOff, UserX } from 'lucide-react';
 import { RoomRole } from '@conversio/shared';
@@ -23,6 +24,7 @@ function ConferenceRoom({ roomId }: { roomId: string }) {
   const [isFileShareOpen, setIsFileShareOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
+  const [isBreakoutRoomsOpen, setIsBreakoutRoomsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'audio' | 'video'>('audio');
 
@@ -152,6 +154,12 @@ function ConferenceRoom({ roomId }: { roomId: string }) {
       {/* Participants & Host Moderation Drawer */}
       <ParticipantsDrawer isOpen={isParticipantsOpen} onClose={() => setIsParticipantsOpen(false)} />
 
+      {/* Breakout Small Groups Modal */}
+      <BreakoutRoomsModal
+        isOpen={isBreakoutRoomsOpen}
+        onClose={() => setIsBreakoutRoomsOpen(false)}
+      />
+
       {/* Audio & Video Device Settings Modal */}
       <DeviceSettingsModal
         isOpen={isSettingsOpen}
@@ -169,6 +177,8 @@ function ConferenceRoom({ roomId }: { roomId: string }) {
         isChatOpen={isChatOpen}
         onToggleParticipants={() => setIsParticipantsOpen((prev) => !prev)}
         isParticipantsOpen={isParticipantsOpen}
+        onToggleBreakoutRooms={() => setIsBreakoutRoomsOpen((prev) => !prev)}
+        isBreakoutRoomsOpen={isBreakoutRoomsOpen}
         onOpenSettings={(tab) => {
           setSettingsTab(tab || 'audio');
           setIsSettingsOpen(true);

@@ -125,3 +125,4 @@ runAuthSecurityTests().catch((err) => {
   console.error('\n❌ Auth security test suite failed:', err);
   process.exit(1);
 });
+

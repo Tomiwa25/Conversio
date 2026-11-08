@@ -1,7 +1,11 @@
 import { Server as HttpServer } from 'node:http';
 import { Server, Socket } from 'socket.io';
 import {
+  ActiveSpeakerPayload,
   AdmitParticipantPayload,
+  BreakoutBroadcastPayload,
+  BreakoutClosePayload,
+  BreakoutRoomsUpdatePayload,
   ChatMessage,
   IceCandidatePayload,
   JoinRoomPayload,
@@ -10,6 +14,7 @@ import {
   Participant,
   RaiseHandPayload,
   ReactionPayload,
+  RecordingStatusPayload,
   RemoveParticipantPayload,
   RoomLockState,
   RoomTokenPayload,
@@ -382,6 +387,39 @@ export class SignalingGateway {
 
         session.participant.networkQuality = payload.quality;
         socket.to(payload.roomId).emit(SignalingEvent.NETWORK_QUALITY, payload);
+      });
+
+      // 9b. In-Meeting Local Recording Status Relay
+      socket.on(SignalingEvent.RECORDING_STATUS, (payload: RecordingStatusPayload) => {
+        const session = this.socketSessions.get(socket.id);
+        if (!session || session.roomId !== payload.roomId) return;
+        socket.to(payload.roomId).emit(SignalingEvent.RECORDING_STATUS, payload);
+      });
+
+      // 9c. Active Speaker Audio Detection Relay
+      socket.on(SignalingEvent.ACTIVE_SPEAKER, (payload: ActiveSpeakerPayload) => {
+        const session = this.socketSessions.get(socket.id);
+        if (!session || session.roomId !== payload.roomId) return;
+        socket.to(payload.roomId).emit(SignalingEvent.ACTIVE_SPEAKER, payload);
+      });
+
+      // 9d. Breakout Rooms Lifecycle Handlers
+      socket.on(SignalingEvent.BREAKOUT_ROOMS_UPDATE, (payload: BreakoutRoomsUpdatePayload) => {
+        const session = this.socketSessions.get(socket.id);
+        if (!session || session.participant.role !== 'host') return;
+        this.io?.to(payload.roomId).emit(SignalingEvent.BREAKOUT_ROOMS_UPDATE, payload);
+      });
+
+      socket.on(SignalingEvent.BREAKOUT_BROADCAST, (payload: BreakoutBroadcastPayload) => {
+        const session = this.socketSessions.get(socket.id);
+        if (!session || session.participant.role !== 'host') return;
+        socket.to(payload.roomId).emit(SignalingEvent.BREAKOUT_BROADCAST, payload);
+      });
+
+      socket.on(SignalingEvent.BREAKOUT_CLOSE, (payload: BreakoutClosePayload) => {
+        const session = this.socketSessions.get(socket.id);
+        if (!session || session.participant.role !== 'host') return;
+        this.io?.to(payload.roomId).emit(SignalingEvent.BREAKOUT_CLOSE, payload);
       });
 
       // 10. WebRTC Media Signaling (SDP Offer Relay)
