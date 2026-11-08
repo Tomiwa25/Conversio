@@ -7,7 +7,7 @@ import { VideoGrid } from '../../../components/VideoGrid';
 import { RoomControls } from '../../../components/RoomControls';
 import { Whiteboard } from '../../../components/Whiteboard';
 import { FileShare } from '../../../components/FileShare';
-import { Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Loader2, Lock, ArrowLeft } from 'lucide-react';
 import { RoomRole } from '@conversio/shared';
 
 function ConferenceRoom({ roomId }: { roomId: string }) {
@@ -43,24 +43,26 @@ function ConferenceRoom({ roomId }: { roomId: string }) {
     };
   }, [roomId, userId, participantName, role, token, manager]);
 
-  // Connection Error / Room Locked View
+  // Meeting Locked / Access Denied View
   if (state.connectionStatus === 'error') {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
         <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center shadow-2xl">
-          <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mx-auto mb-4">
-            <AlertCircle className="w-6 h-6" />
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto mb-4">
+            <Lock className="w-6 h-6" />
           </div>
-          <h2 className="text-xl font-bold text-white mb-2">Access Denied</h2>
-          <p className="text-xs text-slate-400 mb-6">
-            {state.errorMessage || 'Unable to join this meeting.'}
+          <h2 className="text-xl font-bold text-white mb-2">Meeting Locked</h2>
+          <p className="text-xs text-slate-400 mb-6 leading-relaxed">
+            {state.errorMessage?.includes('locked')
+              ? 'The host has locked this meeting. No new participants can join at this time. Please contact the host to unlock the meeting.'
+              : state.errorMessage || 'Unable to join this meeting.'}
           </p>
           <button
             onClick={() => router.push('/')}
             className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold transition flex items-center justify-center space-x-2"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Return to Lobby</span>
+            <span>Return to Home</span>
           </button>
         </div>
       </div>
@@ -72,26 +74,24 @@ function ConferenceRoom({ roomId }: { roomId: string }) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 space-y-4">
         <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-        <p className="text-sm font-medium text-slate-300">
-          Negotiating WebRTC Peer Connections & Room Security...
-        </p>
-        <span className="text-xs text-slate-500">Checking room lock state and allocating media streams</span>
+        <p className="text-sm font-semibold text-white">Connecting to meeting...</p>
+        <span className="text-xs text-slate-400">Preparing your audio, video, and collaboration tools</span>
       </div>
     );
   }
 
   return (
     <div className="relative h-screen w-screen bg-slate-950 flex flex-col overflow-hidden select-none">
-      {/* Video Conference Tiles */}
+      {/* Video Meeting Grid */}
       <VideoGrid />
 
-      {/* Floating Whiteboard Modal / Canvas View */}
+      {/* Shared Interactive Whiteboard */}
       <Whiteboard isOpen={isWhiteboardOpen} onClose={() => setIsWhiteboardOpen(false)} />
 
-      {/* Direct Peer File Transfer Drawer */}
+      {/* File Sharing Drawer */}
       <FileShare isOpen={isFileShareOpen} onClose={() => setIsFileShareOpen(false)} />
 
-      {/* Bottom Conference Control Bar */}
+      {/* Bottom Meeting Controls Bar */}
       <RoomControls
         onToggleWhiteboard={() => setIsWhiteboardOpen((prev) => !prev)}
         isWhiteboardOpen={isWhiteboardOpen}
@@ -111,4 +111,3 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
     </WebRTCProvider>
   );
 }
-

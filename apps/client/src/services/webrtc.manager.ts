@@ -63,6 +63,9 @@ const ICE_SERVERS: RTCIceServer[] = [
 export class WebRTCConnectionManager {
   private socket: Socket | null = null;
   private peerConnections: Map<string, RTCPeerConnection> = new Map();
+  private pendingIceCandidates: Map<string, RTCIceCandidateInit[]> = new Map();
+  private makingOffer: Map<string, boolean> = new Map();
+  private ignoreOffer: Map<string, boolean> = new Map();
   private dataChannels: Map<
     string,
     {
@@ -236,38 +239,67 @@ export class WebRTCConnectionManager {
       this.updateState({ participants: updated, remoteStreams: newRemoteStreams });
     });
 
-    // WebRTC Offer received
+    // WebRTC Offer received with W3C Perfect Negotiation
     this.socket.on(SignalingEvent.OFFER, async (payload: SdpPayload) => {
-      const pc = await this.getOrCreatePeerConnection(payload.senderPeerId, false);
+      const peerId = payload.senderPeerId;
+      const pc = await this.getOrCreatePeerConnection(peerId, false);
+
+      const isPolite = (this.state.currentUser?.id || '') < peerId;
+      const isOfferCollision =
+        payload.description.type === 'offer' &&
+        (Boolean(this.makingOffer.get(peerId)) || pc.signalingState !== 'stable');
+
+      this.ignoreOffer.set(peerId, !isPolite && isOfferCollision);
+      if (this.ignoreOffer.get(peerId)) {
+        console.warn(`[WebRTC] Glare detected. Impolite peer ignoring colliding offer from ${peerId}`);
+        return;
+      }
+
+      if (isOfferCollision) {
+        await pc.setLocalDescription({ type: 'rollback' });
+      }
+
       await pc.setRemoteDescription(new RTCSessionDescription(payload.description));
+      await this.flushPendingCandidates(peerId, pc);
+
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
       this.socket?.emit(SignalingEvent.ANSWER, {
         roomId: payload.roomId,
-        targetPeerId: payload.senderPeerId,
-        senderPeerId: this.socket.id,
+        targetPeerId: peerId,
+        senderPeerId: this.state.currentUser?.id || this.socket.id,
         description: answer,
       });
     });
 
     // WebRTC Answer received
     this.socket.on(SignalingEvent.ANSWER, async (payload: SdpPayload) => {
-      const pc = this.peerConnections.get(payload.senderPeerId);
+      const peerId = payload.senderPeerId;
+      const pc = this.peerConnections.get(peerId);
       if (pc) {
         await pc.setRemoteDescription(new RTCSessionDescription(payload.description));
+        await this.flushPendingCandidates(peerId, pc);
       }
     });
 
-    // WebRTC ICE Candidate received
+    // WebRTC ICE Candidate received with Candidate Queueing
     this.socket.on(SignalingEvent.ICE_CANDIDATE, async (payload: IceCandidatePayload) => {
-      const pc = this.peerConnections.get(payload.senderPeerId);
-      if (pc && payload.candidate) {
-        try {
-          await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
-        } catch (err) {
-          console.error('Error adding ICE candidate:', err);
-        }
+      const peerId = payload.senderPeerId;
+      const pc = this.peerConnections.get(peerId);
+
+      if (!pc || !pc.remoteDescription) {
+        // Queue candidate until setRemoteDescription completes
+        const queue = this.pendingIceCandidates.get(peerId) || [];
+        queue.push(payload.candidate);
+        this.pendingIceCandidates.set(peerId, queue);
+        return;
+      }
+
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+      } catch (err) {
+        console.error(`[WebRTC] Failed to add ICE candidate from ${peerId}:`, err);
       }
     });
 
@@ -298,6 +330,19 @@ export class WebRTCConnectionManager {
     });
   }
 
+  private async flushPendingCandidates(peerId: string, pc: RTCPeerConnection): Promise<void> {
+    const queue = this.pendingIceCandidates.get(peerId);
+    if (!queue || queue.length === 0) return;
+    for (const candidate of queue) {
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (err) {
+        console.error(`[WebRTC] Failed to add buffered ICE candidate for ${peerId}:`, err);
+      }
+    }
+    this.pendingIceCandidates.delete(peerId);
+  }
+
   /**
    * Create RTCPeerConnection and bind Dual DataChannels + SRTP media
    */
@@ -305,17 +350,32 @@ export class WebRTCConnectionManager {
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     this.peerConnections.set(peerId, pc);
 
-    // Attach local media tracks
-    if (this.state.localStream) {
+    // Attach local media tracks (honoring active screen share for late joiners)
+    if (this.state.isScreenSharing && this.state.screenStream) {
+      const screenVideoTrack = this.state.screenStream.getVideoTracks()[0];
+      if (screenVideoTrack) {
+        pc.addTrack(screenVideoTrack, this.state.screenStream);
+      }
+      const audioTrack = this.state.localStream?.getAudioTracks()[0];
+      if (audioTrack) {
+        pc.addTrack(audioTrack, this.state.localStream!);
+      }
+    } else if (this.state.localStream) {
       this.state.localStream.getTracks().forEach((track) => {
         pc.addTrack(track, this.state.localStream!);
       });
     }
 
-    // Handle incoming remote media tracks (SRTP)
+    // Handle incoming remote media tracks (SRTP) with lifecycle listeners
     pc.ontrack = (event) => {
       const [stream] = event.streams;
       if (stream) {
+        event.track.onmute = () => {
+          this.updateState({ remoteStreams: new Map(this.state.remoteStreams) });
+        };
+        event.track.onunmute = () => {
+          this.updateState({ remoteStreams: new Map(this.state.remoteStreams) });
+        };
         const newRemoteStreams = new Map(this.state.remoteStreams);
         newRemoteStreams.set(peerId, stream);
         this.updateState({ remoteStreams: newRemoteStreams });
@@ -328,33 +388,34 @@ export class WebRTCConnectionManager {
         this.socket.emit(SignalingEvent.ICE_CANDIDATE, {
           roomId: this.state.roomId,
           targetPeerId: peerId,
-          senderPeerId: this.socket.id,
+          senderPeerId: this.state.currentUser?.id || this.socket.id,
           candidate: event.candidate.toJSON(),
         });
       }
     };
 
     if (isInitiator) {
+      this.makingOffer.set(peerId, true);
       // Create Dual DataChannels on the initiator side
-      // 1. Reliable DataChannel for Whiteboard (Fabric JSON) & File chunks
       const whiteboardChannel = pc.createDataChannel('whiteboard', { ordered: true });
-      // 2. Unreliable, Unordered DataChannel for high-frequency cursor/pointer coordinates
       const pointerChannel = pc.createDataChannel('pointer', { ordered: false, maxRetransmits: 0 });
-      // 3. Reliable DataChannel with backpressure for files
       const fileChannel = pc.createDataChannel('file', { ordered: true });
 
       this.bindDataChannelEvents(peerId, whiteboardChannel, pointerChannel, fileChannel);
 
-      // Create Offer
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
 
-      this.socket?.emit(SignalingEvent.OFFER, {
-        roomId: this.state.roomId,
-        targetPeerId: peerId,
-        senderPeerId: this.socket.id,
-        description: offer,
-      });
+        this.socket?.emit(SignalingEvent.OFFER, {
+          roomId: this.state.roomId,
+          targetPeerId: peerId,
+          senderPeerId: this.state.currentUser?.id || this.socket.id,
+          description: offer,
+        });
+      } finally {
+        this.makingOffer.set(peerId, false);
+      }
     } else {
       // Receiver side: listen for incoming DataChannels
       pc.ondatachannel = (event) => {
@@ -500,54 +561,68 @@ export class WebRTCConnectionManager {
     const totalBytes = dataBuffer.byteLength;
     const totalChunks = Math.ceil(totalBytes / CHUNK_SIZE);
 
-    for (const [peerId, { file: channel }] of this.dataChannels.entries()) {
-      if (channel.readyState !== 'open') continue;
+    const activeChannels = Array.from(this.dataChannels.values())
+      .map((c) => c.file)
+      .filter((ch) => ch.readyState === 'open');
 
-      channel.binaryType = 'arraybuffer';
-      channel.bufferedAmountLowThreshold = 64 * 1024; // 64 KB buffer threshold
+    if (activeChannels.length === 0) return;
 
-      let offset = 0;
-      let chunkIndex = 0;
+    let overallProgress = 0;
 
-      while (offset < totalBytes) {
-        // Backpressure check: wait if bufferedAmount exceeds limit
-        if (channel.bufferedAmount > 256 * 1024) {
-          await new Promise<void>((resolve) => {
-            const onLow = () => {
-              channel.removeEventListener('bufferedamountlow', onLow);
-              resolve();
-            };
-            channel.addEventListener('bufferedamountlow', onLow);
-          });
+    // Concurrently stream file chunks across all peer channels
+    await Promise.all(
+      activeChannels.map(async (channel) => {
+        channel.binaryType = 'arraybuffer';
+        channel.bufferedAmountLowThreshold = 64 * 1024; // 64 KB buffer threshold
+
+        let offset = 0;
+        let chunkIndex = 0;
+
+        while (offset < totalBytes) {
+          // Backpressure check: wait if bufferedAmount exceeds limit
+          if (channel.bufferedAmount > 256 * 1024) {
+            await new Promise<void>((resolve) => {
+              const onLow = () => {
+                channel.removeEventListener('bufferedamountlow', onLow);
+                resolve();
+              };
+              channel.addEventListener('bufferedamountlow', onLow);
+            });
+          }
+
+          const chunkData = dataBuffer.slice(offset, offset + CHUNK_SIZE);
+
+          // Prepend binary header: metadata padded to 320 bytes
+          const header = new TextEncoder().encode(
+            JSON.stringify({
+              fileId,
+              name: file.name,
+              size: file.size,
+              type: file.type,
+              chunkIndex,
+              totalChunks,
+              isEncrypted,
+              iv: ivBase64,
+            }).padEnd(320, ' ')
+          );
+
+          const packet = new Uint8Array(header.byteLength + chunkData.byteLength);
+          packet.set(header, 0);
+          packet.set(new Uint8Array(chunkData), header.byteLength);
+
+          channel.send(packet);
+
+          offset += CHUNK_SIZE;
+          chunkIndex++;
+
+          const currentPct = Math.round((offset / totalBytes) * 100);
+          if (currentPct > overallProgress) {
+            overallProgress = currentPct;
+            onProgress(overallProgress);
+          }
         }
-
-        const chunkData = dataBuffer.slice(offset, offset + CHUNK_SIZE);
-
-        // Prepend binary header: metadata padded to 320 bytes
-        const header = new TextEncoder().encode(
-          JSON.stringify({
-            fileId,
-            name: file.name,
-            size: file.size,
-            type: file.type,
-            chunkIndex,
-            totalChunks,
-            isEncrypted,
-            iv: ivBase64,
-          }).padEnd(320, ' ')
-        );
-
-        const packet = new Uint8Array(header.byteLength + chunkData.byteLength);
-        packet.set(header, 0);
-        packet.set(new Uint8Array(chunkData), header.byteLength);
-
-        channel.send(packet);
-
-        offset += CHUNK_SIZE;
-        chunkIndex++;
-        onProgress(Math.round((offset / totalBytes) * 100));
-      }
-    }
+      })
+    );
   }
 
   private handleIncomingFileChunk(data: ArrayBuffer): void {
@@ -654,7 +729,14 @@ export class WebRTCConnectionManager {
       pc.close();
       this.peerConnections.delete(peerId);
     }
+    const stream = this.state.remoteStreams.get(peerId);
+    if (stream) {
+      stream.getTracks().forEach((t) => t.stop());
+    }
     this.dataChannels.delete(peerId);
+    this.pendingIceCandidates.delete(peerId);
+    this.makingOffer.delete(peerId);
+    this.ignoreOffer.delete(peerId);
   }
 
   public disconnect(): void {

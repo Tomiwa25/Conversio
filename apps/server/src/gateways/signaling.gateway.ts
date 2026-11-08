@@ -104,8 +104,9 @@ export class SignalingGateway {
           joinedAt: new Date().toISOString(),
         };
 
-        // Join Socket.io room channel
+        // Join Socket.io room channel AND private user channel for direct targeting
         socket.join(roomId);
+        socket.join(verifiedUserId);
         this.socketSessions.set(socket.id, { roomId, participant: fullParticipant, tokenPayload });
 
         if (!this.roomParticipants.has(roomId)) {
@@ -131,9 +132,10 @@ export class SignalingGateway {
         const session = this.socketSessions.get(socket.id);
         if (!session || session.roomId !== payload.roomId) return;
 
-        socket.to(payload.targetPeerId).emit(SignalingEvent.OFFER, {
+        // Route directly to the target user's private channel with the sender's user ID
+        this.io?.to(payload.targetPeerId).emit(SignalingEvent.OFFER, {
           ...payload,
-          senderPeerId: socket.id,
+          senderPeerId: session.participant.id,
         });
       });
 
@@ -142,20 +144,20 @@ export class SignalingGateway {
         const session = this.socketSessions.get(socket.id);
         if (!session || session.roomId !== payload.roomId) return;
 
-        socket.to(payload.targetPeerId).emit(SignalingEvent.ANSWER, {
+        this.io?.to(payload.targetPeerId).emit(SignalingEvent.ANSWER, {
           ...payload,
-          senderPeerId: socket.id,
+          senderPeerId: session.participant.id,
         });
       });
 
-      // 4. WebRTC ICE Candidate Relay (SRTP NAT/Firewall Traversal)
+      // 4. WebRTC ICE Candidate Relay (NAT/Firewall Traversal)
       socket.on(SignalingEvent.ICE_CANDIDATE, (payload: IceCandidatePayload) => {
         const session = this.socketSessions.get(socket.id);
         if (!session || session.roomId !== payload.roomId) return;
 
-        socket.to(payload.targetPeerId).emit(SignalingEvent.ICE_CANDIDATE, {
+        this.io?.to(payload.targetPeerId).emit(SignalingEvent.ICE_CANDIDATE, {
           ...payload,
-          senderPeerId: socket.id,
+          senderPeerId: session.participant.id,
         });
       });
 

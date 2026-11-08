@@ -38,7 +38,7 @@ export const FileShare: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
       manager.setEncryptionKey(key);
       setIsKeyConfigured(true);
     } catch (err) {
-      console.error('Failed to derive encryption key:', err);
+      console.error('Failed to set security code:', err);
     }
   };
 
@@ -59,7 +59,6 @@ export const FileShare: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
 
       // When all chunks arrive, assemble and decrypt
       if (buffer.receivedCount === chunk.totalChunks) {
-        // Concatenate all chunks
         const totalLength = buffer.chunks.reduce((acc, c) => acc + c.byteLength, 0);
         const combined = new Uint8Array(totalLength);
         let offset = 0;
@@ -70,14 +69,14 @@ export const FileShare: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
 
         let finalBuffer: ArrayBuffer = combined.buffer;
 
-        // Decrypt if file was transmitted with AES-256-GCM
+        // Decrypt if file was transmitted with protection
         if (chunk.isEncrypted && chunk.iv && state.encryptionKey) {
           try {
             const ivBytes = Uint8Array.from(atob(chunk.iv), (c) => c.charCodeAt(0));
             finalBuffer = await CryptoUtils.decryptBuffer(state.encryptionKey, ivBytes, combined.buffer);
           } catch (decryptErr) {
-            console.error('AES-256-GCM Decryption failed (Authentication Tag mismatch):', decryptErr);
-            alert(`Decryption failed for ${chunk.name}. Verify your encryption passphrase.`);
+            console.error('Decryption failed:', decryptErr);
+            alert(`Unable to open ${chunk.name}. Please ensure your security code matches the sender's.`);
             fileChunksBuffer.current.delete(chunk.fileId);
             return;
           }
@@ -93,7 +92,7 @@ export const FileShare: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
             size: chunk.size,
             type: chunk.type,
             blobUrl,
-            timestamp: new Date().toLocaleTimeString(),
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             isEncrypted: chunk.isEncrypted,
           },
           ...prev,
@@ -118,7 +117,7 @@ export const FileShare: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
         setUploadProgress(pct);
       });
     } catch (err) {
-      console.error('File transfer failed:', err);
+      console.error('File send failed:', err);
     } finally {
       setTimeout(() => {
         setUploadProgress(null);
@@ -142,28 +141,28 @@ export const FileShare: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
       <div className="flex items-center justify-between pb-3 border-b border-slate-800">
         <div className="flex items-center space-x-2">
           <FileIcon className="w-5 h-5 text-blue-400" />
-          <h3 className="font-semibold text-sm text-white">Peer File Transfer</h3>
+          <h3 className="font-semibold text-sm text-white">Share Files</h3>
         </div>
         <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
           <X className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Encryption Key Bar */}
+      {/* Security Passcode Bar */}
       <div className="mt-3 p-2.5 bg-slate-950/60 rounded-xl border border-slate-800">
         <div className="flex items-center justify-between text-xs mb-1.5">
           <span className="flex items-center space-x-1 font-medium text-slate-300">
-            <Lock className={`w-3.5 h-3.5 ${isKeyConfigured ? 'text-emerald-400' : 'text-amber-400'}`} />
-            <span>E2E AES-256-GCM</span>
+            <Lock className={`w-3.5 h-3.5 ${isKeyConfigured ? 'text-emerald-400' : 'text-slate-400'}`} />
+            <span>File Protection</span>
           </span>
-          <span className={`text-[10px] font-mono ${isKeyConfigured ? 'text-emerald-400' : 'text-slate-500'}`}>
-            {isKeyConfigured ? 'PROTECTED' : 'OPTIONAL PASSPHRASE'}
+          <span className={`text-[10px] font-medium ${isKeyConfigured ? 'text-emerald-400' : 'text-slate-500'}`}>
+            {isKeyConfigured ? 'PROTECTED' : 'OPTIONAL CODE'}
           </span>
         </div>
         <div className="flex items-center space-x-1.5">
           <input
             type="password"
-            placeholder="Room secret passphrase..."
+            placeholder="Set passcode for files..."
             value={passphrase}
             onChange={(e) => setPassphrase(e.target.value)}
             className="flex-1 px-2.5 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-xs text-white focus:outline-none focus:border-blue-500 transition"
@@ -178,12 +177,12 @@ export const FileShare: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
         </div>
       </div>
 
-      {/* Upload Zone */}
+      {/* Upload Dropzone */}
       <div className="mt-3">
-        <label className="flex flex-col items-center justify-center p-3.5 border-2 border-dashed border-slate-700 hover:border-blue-500/80 rounded-xl cursor-pointer bg-slate-800/40 hover:bg-slate-800/80 transition group">
+        <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-700 hover:border-blue-500/80 rounded-xl cursor-pointer bg-slate-800/40 hover:bg-slate-800/80 transition group">
           <UploadCloud className="w-7 h-7 text-slate-400 group-hover:text-blue-400 transition mb-1" />
-          <span className="text-xs font-medium text-slate-200">Send Encrypted File</span>
-          <span className="text-[10px] text-slate-400 mt-0.5">SCTP DataChannel • 64KB Chunking</span>
+          <span className="text-xs font-semibold text-slate-200">Send File to Meeting</span>
+          <span className="text-[10px] text-slate-400 mt-0.5">Click or drag and drop any document</span>
           <input type="file" onChange={handleFileUpload} className="hidden" />
         </label>
 
@@ -192,7 +191,7 @@ export const FileShare: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
           <div className="mt-3 p-3 bg-slate-800/80 rounded-xl border border-slate-700">
             <div className="flex justify-between text-xs text-slate-300 mb-1.5 truncate">
               <span className="truncate">{activeFileName}</span>
-              <span className="font-mono text-blue-400">{uploadProgress}%</span>
+              <span className="font-semibold text-blue-400">{uploadProgress}%</span>
             </div>
             <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
               <div
@@ -207,12 +206,12 @@ export const FileShare: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
       {/* Received Files List */}
       <div className="mt-3 flex-1 overflow-y-auto space-y-2 pr-1">
         <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 px-1">
-          Received Files ({receivedFiles.length})
+          Shared in this Meeting ({receivedFiles.length})
         </div>
 
         {receivedFiles.length === 0 ? (
           <div className="text-center py-6 text-xs text-slate-500">
-            No files received yet.
+            No files shared yet.
           </div>
         ) : (
           receivedFiles.map((f) => (
@@ -235,7 +234,7 @@ export const FileShare: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
               <a
                 href={f.blobUrl}
                 download={f.name}
-                className="p-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition shrink-0 ml-2"
+                className="p-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition shrink-0 ml-2 shadow"
                 title="Download"
               >
                 <Download className="w-3.5 h-3.5" />

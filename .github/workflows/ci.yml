@@ -1,0 +1,76 @@
+name: Conversio CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build & Test Full Stack
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: conversio_admin
+          POSTGRES_PASSWORD: conversio_secure_db_password_2026
+          POSTGRES_DB: conversio
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Monorepo Dependencies
+        run: npm ci
+
+      - name: Build Shared Types & Contracts
+        run: npm --workspace=@conversio/shared run build
+
+      - name: Run Backend Concurrency, Security & Idempotency Tests
+        env:
+          NODE_ENV: test
+          PORT: 4000
+          JWT_SECRET: ci-testing-secret-jwt-key
+          DATABASE_URL: postgresql://conversio_admin:conversio_secure_db_password_2026@localhost:5432/conversio
+          REDIS_URL: redis://localhost:6379
+        run: npm run test:server
+
+      - name: Build Next.js Production Client
+        env:
+          NEXT_PUBLIC_SERVER_URL: http://localhost:4000
+          NEXT_PUBLIC_STUN_SERVER_1: stun:stun.l.google.com:19302
+          NEXT_PUBLIC_STUN_SERVER_2: stun:stun1.l.google.com:19302
+        run: npm --workspace=@conversio/client run build
+
+      - name: Verification Summary
+        run: echo "✅ All Conversio monorepo packages compiled, tested, and validated successfully!"
