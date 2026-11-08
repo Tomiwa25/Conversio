@@ -64,9 +64,9 @@ export class SignalingGateway {
 
     this.io.on('connection', (socket: Socket) => {
       // 1. Join Room Handler with Token & Lock Verification
-      socket.on(SignalingEvent.JOIN_ROOM, (payload: JoinRoomPayload) => {
+      socket.on(SignalingEvent.JOIN_ROOM, async (payload: JoinRoomPayload) => {
         const { roomId, participant, token } = payload;
-        const room = roomService.getRoom(roomId);
+        const room = await roomService.getRoom(roomId);
 
         if (!room) {
           socket.emit(SignalingEvent.ERROR, {

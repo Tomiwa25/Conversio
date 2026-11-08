@@ -26,7 +26,7 @@ const lockRoomSchema = z.object({
 export const roomRouter = Router();
 
 // POST /api/rooms - Idempotent Room Creation with Cryptographic Host Token
-roomRouter.post('/', idempotencyMiddleware, (req: Request, res: Response) => {
+roomRouter.post('/', idempotencyMiddleware, async (req: Request, res: Response) => {
   const parseResult = createRoomSchema.safeParse(req.body);
   if (!parseResult.success) {
     res.status(400).json({
@@ -36,7 +36,7 @@ roomRouter.post('/', idempotencyMiddleware, (req: Request, res: Response) => {
     return;
   }
 
-  const room = roomService.createRoom(parseResult.data);
+  const room = await roomService.createRoom(parseResult.data);
 
   // Issue cryptographic Host Admission Token
   const token = authService.generateRoomToken({
@@ -55,8 +55,8 @@ roomRouter.post('/', idempotencyMiddleware, (req: Request, res: Response) => {
 });
 
 // POST /api/rooms/:id/join - Issue Cryptographic Participant Admission Token
-roomRouter.post('/:id/join', (req: Request, res: Response) => {
-  const room = roomService.getRoom(req.params.id);
+roomRouter.post('/:id/join', async (req: Request, res: Response) => {
+  const room = await roomService.getRoom(req.params.id);
   if (!room) {
     res.status(404).json({ error: 'Room not found' });
     return;
@@ -97,8 +97,8 @@ roomRouter.post('/:id/join', (req: Request, res: Response) => {
 });
 
 // GET /api/rooms/:id - Retrieve Room Details
-roomRouter.get('/:id', (req: Request, res: Response) => {
-  const room = roomService.getRoom(req.params.id);
+roomRouter.get('/:id', async (req: Request, res: Response) => {
+  const room = await roomService.getRoom(req.params.id);
   if (!room) {
     res.status(404).json({ error: 'Room not found' });
     return;
@@ -107,7 +107,7 @@ roomRouter.get('/:id', (req: Request, res: Response) => {
 });
 
 // POST /api/rooms/:id/lock - Optimistic Concurrency Room Lock Control with Token Auth
-roomRouter.post('/:id/lock', (req: Request, res: Response) => {
+roomRouter.post('/:id/lock', async (req: Request, res: Response) => {
   const parseResult = lockRoomSchema.safeParse(req.body);
   if (!parseResult.success) {
     res.status(400).json({
@@ -129,7 +129,7 @@ roomRouter.post('/:id/lock', (req: Request, res: Response) => {
     }
   }
 
-  const result = roomService.setRoomLock(req.params.id, parseResult.data);
+  const result = await roomService.setRoomLock(req.params.id, parseResult.data);
 
   if (!result.success) {
     if (result.versionMismatch) {

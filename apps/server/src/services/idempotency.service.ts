@@ -2,25 +2,40 @@ import crypto from 'node:crypto';
 import Redis from 'ioredis';
 import { IdempotencyCheckResult, IdempotencyRecord } from '@conversio/shared';
 import { config } from '../config.js';
+import { db } from '../db.js';
 
 export class IdempotencyService {
   private redisClient: Redis | null = null;
   private memoryStore: Map<string, IdempotencyRecord> = new Map();
 
   constructor() {
-    if (config.redisUrl) {
+    if (config.redisUrl && process.env.NODE_ENV !== 'test') {
       try {
         this.redisClient = new Redis(config.redisUrl, {
           lazyConnect: true,
           maxRetriesPerRequest: 1,
+          retryStrategy: () => null, // Stop retrying if Redis is not running
         });
-        this.redisClient.connect().catch((err) => {
-          console.warn('[IdempotencyService] Redis connection failed, using in-memory store:', err.message);
+        this.redisClient.on('error', () => {
+          // Gracefully suppress unhandled socket error emissions
+        });
+        this.redisClient.connect().catch(() => {
           this.redisClient = null;
         });
       } catch (err) {
-        console.warn('[IdempotencyService] Redis init failed, falling back to memory:', err);
+        this.redisClient = null;
       }
+    }
+  }
+
+  public async close(): Promise<void> {
+    if (this.redisClient) {
+      try {
+        await this.redisClient.quit();
+      } catch (e) {
+        // Ignored
+      }
+      this.redisClient = null;
     }
   }
 
@@ -37,11 +52,52 @@ export class IdempotencyService {
     const payloadHash = this.hashPayload(payload);
     const namespacedKey = `idempotency:${key}`;
 
+    // 1. Layer 1: Redis In-Flight Mutex / Fast Cache
     if (this.redisClient) {
-      return this.acquireRedis(namespacedKey, key, payloadHash, ttlSeconds);
+      const redisCheck = await this.acquireRedis(namespacedKey, key, payloadHash, ttlSeconds);
+      if (redisCheck.action !== 'PROCEED') {
+        return redisCheck;
+      }
     }
 
-    return this.acquireMemory(namespacedKey, key, payloadHash, ttlSeconds);
+    // 2. Layer 2: PostgreSQL Durable Persistence
+    const pool = db.getPool();
+    if (pool) {
+      try {
+        const res = await pool.query(
+          'SELECT * FROM idempotency_records WHERE key = $1 AND expires_at > NOW()',
+          [key]
+        );
+        if (res.rows.length > 0) {
+          const row = res.rows[0];
+          if (row.payload_hash !== payloadHash) {
+            return { action: 'PAYLOAD_MISMATCH' };
+          }
+          if (row.status === 'RESOLVED') {
+            return {
+              action: 'REPLAY',
+              cachedRecord: {
+                key: row.key,
+                payloadHash: row.payload_hash,
+                status: row.status,
+                statusCode: row.status_code,
+                responseBody: row.response_body,
+                createdAt: new Date(row.created_at).getTime(),
+                expiresAt: new Date(row.expires_at).getTime(),
+              },
+            };
+          }
+        }
+      } catch (err) {
+        console.warn('[IdempotencyService] PostgreSQL lookup failed:', err);
+      }
+    }
+
+    if (!this.redisClient) {
+      return this.acquireMemory(namespacedKey, key, payloadHash, ttlSeconds);
+    }
+
+    return { action: 'PROCEED' };
   }
 
   public async resolve(
@@ -53,6 +109,7 @@ export class IdempotencyService {
     const namespacedKey = `idempotency:${key}`;
     const now = Date.now();
 
+    // Save to Redis (Cache Layer)
     if (this.redisClient) {
       const raw = await this.redisClient.get(namespacedKey);
       if (raw) {
@@ -63,15 +120,31 @@ export class IdempotencyService {
         record.expiresAt = now + ttlSeconds * 1000;
         await this.redisClient.set(namespacedKey, JSON.stringify(record), 'EX', ttlSeconds);
       }
-      return;
+    } else {
+      const record = this.memoryStore.get(namespacedKey);
+      if (record) {
+        record.status = 'RESOLVED';
+        record.statusCode = statusCode;
+        record.responseBody = responseBody;
+        record.expiresAt = now + ttlSeconds * 1000;
+      }
     }
 
-    const record = this.memoryStore.get(namespacedKey);
-    if (record) {
-      record.status = 'RESOLVED';
-      record.statusCode = statusCode;
-      record.responseBody = responseBody;
-      record.expiresAt = now + ttlSeconds * 1000;
+    // Save to PostgreSQL (Durable Layer)
+    const pool = db.getPool();
+    if (pool) {
+      try {
+        const payloadHash = this.hashPayload(responseBody);
+        await pool.query(
+          `INSERT INTO idempotency_records (key, payload_hash, status, status_code, response_body, created_at, expires_at)
+           VALUES ($1, $2, 'RESOLVED', $3, $4, NOW(), NOW() + interval '1 second' * $5)
+           ON CONFLICT (key) DO UPDATE
+           SET status = 'RESOLVED', status_code = EXCLUDED.status_code, response_body = EXCLUDED.response_body, expires_at = EXCLUDED.expires_at`,
+          [key, payloadHash, statusCode, JSON.stringify(responseBody), ttlSeconds]
+        );
+      } catch (err) {
+        console.warn('[IdempotencyService] PostgreSQL resolve save failed:', err);
+      }
     }
   }
 
@@ -79,9 +152,18 @@ export class IdempotencyService {
     const namespacedKey = `idempotency:${key}`;
     if (this.redisClient) {
       await this.redisClient.del(namespacedKey);
-      return;
+    } else {
+      this.memoryStore.delete(namespacedKey);
     }
-    this.memoryStore.delete(namespacedKey);
+
+    const pool = db.getPool();
+    if (pool) {
+      try {
+        await pool.query('DELETE FROM idempotency_records WHERE key = $1', [key]);
+      } catch (e) {
+        // Ignored
+      }
+    }
   }
 
   private async acquireRedis(
