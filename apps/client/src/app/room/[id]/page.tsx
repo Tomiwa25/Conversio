@@ -21,22 +21,27 @@ function ConferenceRoom({ roomId }: { roomId: string }) {
   const participantName = searchParams.get('name') || 'Guest';
   const userId = searchParams.get('userId') || `user-${Math.random().toString(36).slice(2, 9)}`;
   const role = (searchParams.get('role') as RoomRole) || 'participant';
+  const token = searchParams.get('token') || undefined;
 
   useEffect(() => {
-    // Join WebRTC room on mount
-    manager.joinRoom(roomId, {
-      id: userId,
-      name: participantName,
-      role,
-      isAudioMuted: false,
-      isVideoMuted: false,
-      isScreenSharing: false,
-    });
+    // Join WebRTC room on mount with cryptographic admission token
+    manager.joinRoom(
+      roomId,
+      {
+        id: userId,
+        name: participantName,
+        role,
+        isAudioMuted: false,
+        isVideoMuted: false,
+        isScreenSharing: false,
+      },
+      token
+    );
 
     return () => {
       manager.disconnect();
     };
-  }, [roomId, userId, participantName, role, manager]);
+  }, [roomId, userId, participantName, role, token, manager]);
 
   // Connection Error / Room Locked View
   if (state.connectionStatus === 'error') {

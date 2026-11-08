@@ -2,11 +2,12 @@ import http from 'node:http';
 import { AddressInfo } from 'node:net';
 import { app, server } from '../index.js';
 import { IDEMPOTENCY_HEADER } from '@conversio/shared';
+import { authService } from '../services/auth.service.js';
 
 process.env.NODE_ENV = 'test';
 
 async function runTests() {
-  console.log('🧪 [Conversio Test Suite] Starting Idempotency & Concurrency Verification...\n');
+  console.log('🧪 [Conversio Test Suite] Starting Idempotency, Concurrency & Security Verification...\n');
 
   await new Promise<void>((resolve) => {
     server.listen(0, () => resolve());
@@ -34,11 +35,12 @@ async function runTests() {
     const healthData = await healthRes.json();
     assert(healthRes.status === 200 && healthData.status === 'healthy', 'Healthcheck endpoint responds healthy');
 
-    // 2. Initial Room Creation with Idempotency Key K-100
+    // 2. Initial Room Creation with Idempotency Key K-100 & Cryptographic Host Token
     const key1 = 'test-idempotency-key-100';
     const createPayload1 = {
       title: 'Senior Engineering Standup',
       hostId: 'user-host-42',
+      hostName: 'Sarah Senior',
       maxParticipants: 10,
     };
 
@@ -53,9 +55,18 @@ async function runTests() {
 
     const data1 = await res1.json();
     assert(res1.status === 201 && data1.room?.id, 'Initial room creation returns 201 Created with valid room ID');
+    assert(data1.token && data1.role === 'host', 'Host receives cryptographically signed admission token');
     const createdRoomId = data1.room.id;
+    const hostToken = data1.token;
 
-    // 3. Exact Retry with Key K-100 (Replay Test)
+    // 3. Cryptographic Token Verification
+    const verifiedHost = authService.verifyRoomToken(hostToken);
+    assert(
+      verifiedHost?.userId === 'user-host-42' && verifiedHost?.role === 'host' && verifiedHost?.roomId === createdRoomId,
+      'AuthService verifies host token signature and extracts authenticated role claims'
+    );
+
+    // 4. Exact Retry with Key K-100 (Replay Test)
     const res2 = await fetch(`${baseUrl}/api/rooms`, {
       method: 'POST',
       headers: {
@@ -72,7 +83,7 @@ async function runTests() {
       'Duplicate request with identical key returns cached response with x-idempotency-replayed header'
     );
 
-    // 4. Payload Mismatch Detection
+    // 5. Payload Mismatch Detection
     const mismatchedPayload = {
       title: 'Mismatched Title For Same Key',
       hostId: 'user-host-42',
@@ -93,10 +104,26 @@ async function runTests() {
       'Reusing idempotency key with mismatched payload returns 422 Unprocessable Entity'
     );
 
-    // 5. Atomic Room Locking - Successful Host Lock (Expected Version 1 -> Version 2)
-    const lockRes1 = await fetch(`${baseUrl}/api/rooms/${createdRoomId}/lock`, {
+    // 6. Participant Join Token Issuance
+    const joinRes = await fetch(`${baseUrl}/api/rooms/${createdRoomId}/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Bob Participant' }),
+    });
+
+    const joinData = await joinRes.json();
+    assert(
+      joinRes.status === 200 && joinData.token && joinData.role === 'participant',
+      'Participant joining room receives signed admission token with role participant'
+    );
+
+    // 7. Atomic Room Locking - Successful Host Lock (Expected Version 1 -> Version 2)
+    const lockRes1 = await fetch(`${baseUrl}/api/rooms/${createdRoomId}/lock`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${hostToken}`,
+      },
       body: JSON.stringify({
         isLocked: true,
         userId: 'user-host-42',
@@ -109,13 +136,28 @@ async function runTests() {
       lockRes1.status === 200 &&
         lockData1.room?.lockState.isLocked === true &&
         lockData1.room?.lockState.lockVersion === 2,
-      'Host locks room with matching expectedVersion (increments version to 2)'
+      'Host locks room with matching expectedVersion and valid token (increments version to 2)'
     );
 
-    // 6. Optimistic Concurrency Control - Stale Version Rejection
-    const staleLockRes = await fetch(`${baseUrl}/api/rooms/${createdRoomId}/lock`, {
+    // 8. Rejection of Join on Locked Room
+    const joinLockedRes = await fetch(`${baseUrl}/api/rooms/${createdRoomId}/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Late Arrival' }),
+    });
+    const joinLockedData = await joinLockedRes.json();
+    assert(
+      joinLockedRes.status === 403 && joinLockedData.code === 'ROOM_LOCKED',
+      'Attempting to join locked room is rejected with 403 Forbidden (ROOM_LOCKED)'
+    );
+
+    // 9. Optimistic Concurrency Control - Stale Version Rejection
+    const staleLockRes = await fetch(`${baseUrl}/api/rooms/${createdRoomId}/lock`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${hostToken}`,
+      },
       body: JSON.stringify({
         isLocked: false,
         userId: 'user-host-42',
@@ -129,26 +171,32 @@ async function runTests() {
       'Locking with stale expectedVersion returns 409 Conflict with versionMismatch indicator'
     );
 
-    // 7. Non-host Lock Rejection
+    // 10. Non-host / Tampered Token Lock Rejection
     const unauthorizedLockRes = await fetch(`${baseUrl}/api/rooms/${createdRoomId}/lock`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${joinData.token}`, // Bob's participant token!
+      },
       body: JSON.stringify({
         isLocked: false,
-        userId: 'intruder-user-99',
+        userId: joinData.userId,
         expectedVersion: 2,
       }),
     });
 
     assert(
       unauthorizedLockRes.status === 403,
-      'Non-host participant attempting to lock room is rejected with 403 Forbidden'
+      'Non-host participant token attempting to lock room is rejected with 403 Forbidden'
     );
 
-    // 8. Successful Unlock with Correct Version (Version 2 -> Version 3)
+    // 11. Successful Unlock with Correct Version (Version 2 -> Version 3)
     const unlockRes = await fetch(`${baseUrl}/api/rooms/${createdRoomId}/lock`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${hostToken}`,
+      },
       body: JSON.stringify({
         isLocked: false,
         userId: 'user-host-42',
@@ -161,7 +209,7 @@ async function runTests() {
       unlockRes.status === 200 &&
         unlockData.room?.lockState.isLocked === false &&
         unlockData.room?.lockState.lockVersion === 3,
-      'Host unlocks room with version 2 (increments version to 3)'
+      'Host unlocks room with version 2 and valid token (increments version to 3)'
     );
   } catch (err) {
     console.error('Unexpected test exception:', err);
@@ -177,4 +225,3 @@ async function runTests() {
 }
 
 runTests();
-

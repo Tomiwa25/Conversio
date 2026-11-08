@@ -46,7 +46,8 @@ export const RoomControls: React.FC<{
     setIsLocking(true);
 
     try {
-      const res = await fetch(`http://localhost:4000/api/rooms/${state.roomId}/lock`, {
+      const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:4000';
+      const res = await fetch(`${serverUrl}/api/rooms/${state.roomId}/lock`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

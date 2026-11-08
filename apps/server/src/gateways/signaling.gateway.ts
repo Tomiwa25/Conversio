@@ -5,17 +5,20 @@ import {
   JoinRoomPayload,
   Participant,
   RoomLockState,
+  RoomTokenPayload,
   SdpPayload,
   SignalingEvent,
   WhiteboardPointer,
   WhiteboardStroke,
 } from '@conversio/shared';
 import { roomService } from '../services/room.service.js';
+import { authService } from '../services/auth.service.js';
 import { config } from '../config.js';
 
 interface SocketSession {
   roomId: string;
   participant: Participant;
+  tokenPayload?: RoomTokenPayload;
 }
 
 export class SignalingGateway {
@@ -30,6 +33,18 @@ export class SignalingGateway {
         methods: ['GET', 'POST'],
       },
       transports: ['websocket', 'polling'],
+    });
+
+    // Socket Authentication Middleware
+    this.io.use((socket: Socket, next) => {
+      const token = socket.handshake.auth?.token as string | undefined;
+      if (token) {
+        const payload = authService.verifyRoomToken(token);
+        if (payload) {
+          socket.data.tokenPayload = payload;
+        }
+      }
+      next();
     });
 
     this.setupListeners();
@@ -48,9 +63,9 @@ export class SignalingGateway {
     if (!this.io) return;
 
     this.io.on('connection', (socket: Socket) => {
-      // 1. Join Room Handler with Lock Verification
+      // 1. Join Room Handler with Token & Lock Verification
       socket.on(SignalingEvent.JOIN_ROOM, (payload: JoinRoomPayload) => {
-        const { roomId, participant } = payload;
+        const { roomId, participant, token } = payload;
         const room = roomService.getRoom(roomId);
 
         if (!room) {
@@ -61,8 +76,20 @@ export class SignalingGateway {
           return;
         }
 
+        // Verify Cryptographic Token if provided
+        const activeToken = token || (socket.handshake.auth?.token as string | undefined);
+        let tokenPayload: RoomTokenPayload | undefined = socket.data.tokenPayload;
+
+        if (activeToken && !tokenPayload) {
+          tokenPayload = authService.verifyRoomToken(activeToken) || undefined;
+        }
+
+        // Role elevation protection: trust token claims over raw client payload
+        const verifiedRole = tokenPayload?.role || participant.role || 'participant';
+        const verifiedUserId = tokenPayload?.userId || participant.id;
+
         // Room Lock Enforcement: prevent non-hosts from entering locked rooms
-        if (room.lockState.isLocked && room.hostId !== participant.id) {
+        if (room.lockState.isLocked && room.hostId !== verifiedUserId) {
           socket.emit(SignalingEvent.ERROR, {
             code: 'ROOM_LOCKED',
             message: 'This room is currently locked by the host. Entry denied.',
@@ -72,12 +99,14 @@ export class SignalingGateway {
 
         const fullParticipant: Participant = {
           ...participant,
+          id: verifiedUserId,
+          role: verifiedRole,
           joinedAt: new Date().toISOString(),
         };
 
         // Join Socket.io room channel
         socket.join(roomId);
-        this.socketSessions.set(socket.id, { roomId, participant: fullParticipant });
+        this.socketSessions.set(socket.id, { roomId, participant: fullParticipant, tokenPayload });
 
         if (!this.roomParticipants.has(roomId)) {
           this.roomParticipants.set(roomId, new Map());
@@ -102,7 +131,6 @@ export class SignalingGateway {
         const session = this.socketSessions.get(socket.id);
         if (!session || session.roomId !== payload.roomId) return;
 
-        // Forward SDP Offer to the designated peer socket
         socket.to(payload.targetPeerId).emit(SignalingEvent.OFFER, {
           ...payload,
           senderPeerId: socket.id,
@@ -114,7 +142,6 @@ export class SignalingGateway {
         const session = this.socketSessions.get(socket.id);
         if (!session || session.roomId !== payload.roomId) return;
 
-        // Forward SDP Answer to the designated peer socket
         socket.to(payload.targetPeerId).emit(SignalingEvent.ANSWER, {
           ...payload,
           senderPeerId: socket.id,
@@ -171,4 +198,3 @@ export class SignalingGateway {
 }
 
 export const signalingGateway = new SignalingGateway();
-

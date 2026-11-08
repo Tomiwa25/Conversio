@@ -1,0 +1,75 @@
+services:
+  # Distributed Cache & Mutex for Idempotency and Socket.io horizontal scaling
+  redis:
+    image: redis:7-alpine
+    container_name: conversio-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # NAT Traversal STUN/TURN Server for Symmetric NAT / Restricted Firewalls
+  coturn:
+    image: coturn/coturn:latest
+    container_name: conversio-coturn
+    restart: unless-stopped
+    ports:
+      - "3478:3478"
+      - "3478:3478/udp"
+      - "5349:5349"
+      - "5349:5349/udp"
+    volumes:
+      - ./coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
+    network_mode: bridge
+
+  # Node.js WebRTC Signaling & API Server
+  server:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    container_name: conversio-server
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - NODE_ENV=production
+      - CORS_ORIGIN=http://localhost:3000
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET:-conversio-production-secret-jwt-key-2026}
+      - IDEMPOTENCY_TTL_SECONDS=86400
+      - LOCK_MUTEX_TTL_SECONDS=15
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # Next.js Full-Stack Frontend Client
+  client:
+    build:
+      context: .
+      dockerfile: apps/client/Dockerfile
+    container_name: conversio-client
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - NEXT_PUBLIC_SERVER_URL=http://localhost:4000
+      - NEXT_PUBLIC_STUN_SERVER_1=stun:stun.l.google.com:19302
+      - NEXT_PUBLIC_STUN_SERVER_2=stun:stun1.l.google.com:19302
+      - NEXT_PUBLIC_TURN_SERVER_URL=turn:localhost:3478
+      - NEXT_PUBLIC_TURN_USERNAME=conversio_user
+      - NEXT_PUBLIC_TURN_CREDENTIAL=conversio_secret_password
+    depends_on:
+      - server
+
+volumes:
+  redis_data:
+

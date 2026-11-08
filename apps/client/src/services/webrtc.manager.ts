@@ -10,6 +10,7 @@ import {
   WhiteboardPointer,
   WhiteboardSyncPayload,
 } from '@conversio/shared';
+import { CryptoUtils } from '../utils/crypto.utils';
 
 export interface WebRTCState {
   roomId: string | null;
@@ -26,6 +27,8 @@ export interface WebRTCState {
   lockVersion: number;
   connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
   errorMessage: string | null;
+  authToken: string | null;
+  encryptionKey: CryptoKey | null;
 }
 
 export type StateListener = (state: WebRTCState) => void;
@@ -39,11 +42,22 @@ export type FileChunkListener = (chunk: {
   chunkIndex: number;
   totalChunks: number;
   data: ArrayBuffer;
+  iv?: string;
+  isEncrypted?: boolean;
 }) => void;
 
 const ICE_SERVERS: RTCIceServer[] = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: process.env.NEXT_PUBLIC_STUN_SERVER_1 || 'stun:stun.l.google.com:19302' },
+  { urls: process.env.NEXT_PUBLIC_STUN_SERVER_2 || 'stun:stun1.l.google.com:19302' },
+  ...(process.env.NEXT_PUBLIC_TURN_SERVER_URL
+    ? [
+        {
+          urls: process.env.NEXT_PUBLIC_TURN_SERVER_URL,
+          username: process.env.NEXT_PUBLIC_TURN_USERNAME,
+          credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL,
+        },
+      ]
+    : []),
 ];
 
 export class WebRTCConnectionManager {
@@ -78,12 +92,20 @@ export class WebRTCConnectionManager {
     lockVersion: 1,
     connectionStatus: 'disconnected',
     errorMessage: null,
+    authToken: null,
+    encryptionKey: null,
   };
 
-  constructor(private serverUrl: string = 'http://localhost:4000') {}
+  constructor(
+    private serverUrl: string = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:4000'
+  ) {}
 
   public getState(): WebRTCState {
     return { ...this.state };
+  }
+
+  public setEncryptionKey(key: CryptoKey | null): void {
+    this.updateState({ encryptionKey: key });
   }
 
   public subscribe(listener: StateListener): () => void {
@@ -137,13 +159,19 @@ export class WebRTCConnectionManager {
   }
 
   /**
-   * Connect to signaling server and join room
+   * Connect to signaling server and join room with optional cryptographic token
    */
   public async joinRoom(
     roomId: string,
-    participant: Omit<Participant, 'joinedAt'>
+    participant: Omit<Participant, 'joinedAt'>,
+    token?: string
   ): Promise<void> {
-    this.updateState({ connectionStatus: 'connecting', roomId, currentUser: participant as Participant });
+    this.updateState({
+      connectionStatus: 'connecting',
+      roomId,
+      currentUser: participant as Participant,
+      authToken: token || null,
+    });
 
     if (!this.state.localStream) {
       try {
@@ -154,20 +182,22 @@ export class WebRTCConnectionManager {
     }
 
     this.socket = io(this.serverUrl, {
+      auth: { token },
       transports: ['websocket', 'polling'],
     });
 
-    this.setupSignalingHandlers(roomId, participant);
+    this.setupSignalingHandlers(roomId, participant, token);
   }
 
   private setupSignalingHandlers(
     roomId: string,
-    participant: Omit<Participant, 'joinedAt'>
+    participant: Omit<Participant, 'joinedAt'>,
+    token?: string
   ): void {
     if (!this.socket) return;
 
     this.socket.on('connect', () => {
-      const payload: JoinRoomPayload = { roomId, participant };
+      const payload: JoinRoomPayload = { roomId, participant, token };
       this.socket?.emit(SignalingEvent.JOIN_ROOM, payload);
     });
 
@@ -447,7 +477,7 @@ export class WebRTCConnectionManager {
   }
 
   /**
-   * Chunked File Sharing with Backpressure Monitoring
+   * Chunked File Sharing with Zero-Trust AES-256-GCM Encryption & Backpressure
    */
   public async sendFile(
     file: File,
@@ -455,8 +485,20 @@ export class WebRTCConnectionManager {
   ): Promise<void> {
     const CHUNK_SIZE = 64 * 1024; // 64 KB chunks
     const fileId = crypto.randomUUID();
-    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-    const arrayBuffer = await file.arrayBuffer();
+    let dataBuffer = await file.arrayBuffer();
+    let ivBase64: string | undefined = undefined;
+    let isEncrypted = false;
+
+    // Apply Client-Side AES-256-GCM Zero-Trust Encryption if key is configured
+    if (this.state.encryptionKey) {
+      const encrypted = await CryptoUtils.encryptBuffer(this.state.encryptionKey, dataBuffer);
+      dataBuffer = encrypted.ciphertext;
+      ivBase64 = btoa(String.fromCharCode(...encrypted.iv));
+      isEncrypted = true;
+    }
+
+    const totalBytes = dataBuffer.byteLength;
+    const totalChunks = Math.ceil(totalBytes / CHUNK_SIZE);
 
     for (const [peerId, { file: channel }] of this.dataChannels.entries()) {
       if (channel.readyState !== 'open') continue;
@@ -467,7 +509,7 @@ export class WebRTCConnectionManager {
       let offset = 0;
       let chunkIndex = 0;
 
-      while (offset < file.size) {
+      while (offset < totalBytes) {
         // Backpressure check: wait if bufferedAmount exceeds limit
         if (channel.bufferedAmount > 256 * 1024) {
           await new Promise<void>((resolve) => {
@@ -479,9 +521,9 @@ export class WebRTCConnectionManager {
           });
         }
 
-        const chunkData = arrayBuffer.slice(offset, offset + CHUNK_SIZE);
+        const chunkData = dataBuffer.slice(offset, offset + CHUNK_SIZE);
 
-        // Prepend binary header: [fileId: 36 bytes][chunkIndex: 4 bytes][totalChunks: 4 bytes]
+        // Prepend binary header: metadata padded to 320 bytes
         const header = new TextEncoder().encode(
           JSON.stringify({
             fileId,
@@ -490,7 +532,9 @@ export class WebRTCConnectionManager {
             type: file.type,
             chunkIndex,
             totalChunks,
-          }).padEnd(256, ' ')
+            isEncrypted,
+            iv: ivBase64,
+          }).padEnd(320, ' ')
         );
 
         const packet = new Uint8Array(header.byteLength + chunkData.byteLength);
@@ -501,17 +545,17 @@ export class WebRTCConnectionManager {
 
         offset += CHUNK_SIZE;
         chunkIndex++;
-        onProgress(Math.round((offset / file.size) * 100));
+        onProgress(Math.round((offset / totalBytes) * 100));
       }
     }
   }
 
   private handleIncomingFileChunk(data: ArrayBuffer): void {
     try {
-      const headerBytes = new Uint8Array(data.slice(0, 256));
+      const headerBytes = new Uint8Array(data.slice(0, 320));
       const headerStr = new TextDecoder().decode(headerBytes).trim();
       const meta = JSON.parse(headerStr);
-      const chunkBytes = data.slice(256);
+      const chunkBytes = data.slice(320);
 
       this.fileListeners.forEach((l) =>
         l({
@@ -522,6 +566,8 @@ export class WebRTCConnectionManager {
           chunkIndex: meta.chunkIndex,
           totalChunks: meta.totalChunks,
           data: chunkBytes,
+          isEncrypted: meta.isEncrypted,
+          iv: meta.iv,
         })
       );
     } catch (err) {

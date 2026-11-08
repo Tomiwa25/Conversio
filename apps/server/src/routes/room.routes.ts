@@ -3,11 +3,18 @@ import { z } from 'zod';
 import { roomService } from '../services/room.service.js';
 import { idempotencyMiddleware } from '../middlewares/idempotency.middleware.js';
 import { signalingGateway } from '../gateways/signaling.gateway.js';
+import { authService } from '../services/auth.service.js';
 
 const createRoomSchema = z.object({
   title: z.string().min(1, 'Room title is required').max(100),
   hostId: z.string().min(1, 'Host ID is required'),
+  hostName: z.string().min(1).default('Host'),
   maxParticipants: z.number().int().positive().max(500).optional(),
+});
+
+const joinRoomSchema = z.object({
+  name: z.string().min(1, 'Participant name is required'),
+  userId: z.string().optional(),
 });
 
 const lockRoomSchema = z.object({
@@ -18,7 +25,7 @@ const lockRoomSchema = z.object({
 
 export const roomRouter = Router();
 
-// POST /api/rooms - Idempotent Room Creation
+// POST /api/rooms - Idempotent Room Creation with Cryptographic Host Token
 roomRouter.post('/', idempotencyMiddleware, (req: Request, res: Response) => {
   const parseResult = createRoomSchema.safeParse(req.body);
   if (!parseResult.success) {
@@ -30,7 +37,63 @@ roomRouter.post('/', idempotencyMiddleware, (req: Request, res: Response) => {
   }
 
   const room = roomService.createRoom(parseResult.data);
-  res.status(201).json({ room });
+
+  // Issue cryptographic Host Admission Token
+  const token = authService.generateRoomToken({
+    roomId: room.id,
+    userId: parseResult.data.hostId,
+    name: parseResult.data.hostName,
+    role: 'host',
+  });
+
+  res.status(201).json({
+    room,
+    token,
+    userId: parseResult.data.hostId,
+    role: 'host',
+  });
+});
+
+// POST /api/rooms/:id/join - Issue Cryptographic Participant Admission Token
+roomRouter.post('/:id/join', (req: Request, res: Response) => {
+  const room = roomService.getRoom(req.params.id);
+  if (!room) {
+    res.status(404).json({ error: 'Room not found' });
+    return;
+  }
+
+  const parseResult = joinRoomSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    res.status(400).json({
+      error: 'Validation failed',
+      details: parseResult.error.flatten(),
+    });
+    return;
+  }
+
+  // Pre-join lock check
+  if (room.lockState.isLocked) {
+    res.status(403).json({
+      error: 'This room is currently locked by the host. Entry denied.',
+      code: 'ROOM_LOCKED',
+    });
+    return;
+  }
+
+  const userId = parseResult.data.userId || `user-${crypto.randomUUID().slice(0, 8)}`;
+  const token = authService.generateRoomToken({
+    roomId: room.id,
+    userId,
+    name: parseResult.data.name,
+    role: 'participant',
+  });
+
+  res.status(200).json({
+    room,
+    token,
+    userId,
+    role: 'participant',
+  });
 });
 
 // GET /api/rooms/:id - Retrieve Room Details
@@ -43,7 +106,7 @@ roomRouter.get('/:id', (req: Request, res: Response) => {
   res.status(200).json({ room });
 });
 
-// POST /api/rooms/:id/lock - Optimistic Concurrency Room Lock Control
+// POST /api/rooms/:id/lock - Optimistic Concurrency Room Lock Control with Token Auth
 roomRouter.post('/:id/lock', (req: Request, res: Response) => {
   const parseResult = lockRoomSchema.safeParse(req.body);
   if (!parseResult.success) {
@@ -52,6 +115,18 @@ roomRouter.post('/:id/lock', (req: Request, res: Response) => {
       details: parseResult.error.flatten(),
     });
     return;
+  }
+
+  // Token verification (Bearer header or body token)
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : (req.body.token as string | undefined);
+
+  if (token) {
+    const verified = authService.verifyRoomToken(token);
+    if (!verified || verified.roomId !== req.params.id || verified.role !== 'host') {
+      res.status(403).json({ error: 'Unauthorized: Invalid host authorization token.' });
+      return;
+    }
   }
 
   const result = roomService.setRoomLock(req.params.id, parseResult.data);
@@ -79,4 +154,3 @@ roomRouter.post('/:id/lock', (req: Request, res: Response) => {
     room: result.room,
   });
 });
-

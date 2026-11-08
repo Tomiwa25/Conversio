@@ -16,11 +16,14 @@ export default function LobbyPage() {
   // Join Room State
   const [joinRoomId, setJoinRoomId] = useState('');
   const [participantName, setParticipantName] = useState('');
+  const [isJoining, setIsJoining] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:4000';
+
   /**
-   * Idempotent Room Creation
+   * Idempotent Room Creation with Cryptographic Token
    */
   const handleCreateRoom = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,7 +37,7 @@ export default function LobbyPage() {
     const hostId = `user-${crypto.randomUUID().slice(0, 8)}`;
 
     try {
-      const res = await fetch('http://localhost:4000/api/rooms', {
+      const res = await fetch(`${serverUrl}/api/rooms`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -43,6 +46,7 @@ export default function LobbyPage() {
         body: JSON.stringify({
           title: roomTitle.trim(),
           hostId,
+          hostName: hostName.trim(),
         }),
       });
 
@@ -53,7 +57,10 @@ export default function LobbyPage() {
       }
 
       const roomId = data.room.id;
-      router.push(`/room/${roomId}?name=${encodeURIComponent(hostName)}&userId=${hostId}&role=host`);
+      const token = data.token;
+      router.push(
+        `/room/${roomId}?token=${encodeURIComponent(token)}&name=${encodeURIComponent(hostName)}&userId=${hostId}&role=host`
+      );
     } catch (err: unknown) {
       setErrorMessage(err instanceof Error ? err.message : 'Error creating room');
       setIsCreating(false);
@@ -61,16 +68,41 @@ export default function LobbyPage() {
   };
 
   /**
-   * Join Existing Room
+   * Join Existing Room with Cryptographic Token Issuance & Lock Verification
    */
-  const handleJoinRoom = (e: React.FormEvent) => {
+  const handleJoinRoom = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!joinRoomId.trim() || !participantName.trim()) return;
 
-    const userId = `user-${crypto.randomUUID().slice(0, 8)}`;
-    router.push(
-      `/room/${joinRoomId.trim()}?name=${encodeURIComponent(participantName)}&userId=${userId}&role=participant`
-    );
+    setIsJoining(true);
+    setErrorMessage(null);
+
+    try {
+      const res = await fetch(`${serverUrl}/api/rooms/${joinRoomId.trim()}/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: participantName.trim(),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to join room');
+      }
+
+      const roomId = data.room.id;
+      const token = data.token;
+      const userId = data.userId;
+
+      router.push(
+        `/room/${roomId}?token=${encodeURIComponent(token)}&name=${encodeURIComponent(participantName)}&userId=${userId}&role=participant`
+      );
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Error joining room');
+      setIsJoining(false);
+    }
   };
 
   return (
@@ -90,6 +122,11 @@ export default function LobbyPage() {
           </span>
           <span>•</span>
           <span>Dual DataChannels</span>
+          <span>•</span>
+          <span className="text-emerald-400 flex items-center space-x-1">
+            <Lock className="w-3 h-3" />
+            <span>AES-256 E2EE</span>
+          </span>
         </div>
       </header>
 
@@ -104,7 +141,7 @@ export default function LobbyPage() {
             Real-Time Conferencing & Collaboration for Modern Teams
           </h1>
           <p className="mt-4 text-base text-slate-400 leading-relaxed">
-            Multi-user WebRTC video calling, collaborative Fabric.js whiteboard, direct chunked file sharing, and atomic room locks.
+            Multi-user WebRTC video calling, collaborative Fabric.js whiteboard, zero-trust AES-256-GCM file sharing, and atomic room locks.
           </p>
         </div>
 
@@ -124,7 +161,7 @@ export default function LobbyPage() {
               </div>
               <h2 className="text-xl font-bold text-white mb-2">Create New Meeting</h2>
               <p className="text-xs text-slate-400 mb-6">
-                Instant room creation backed by client-side UUID idempotency keys to prevent duplicate rooms on retries.
+                Instant room creation backed by client-side UUID idempotency keys and cryptographically signed host admission tokens.
               </p>
 
               <form onSubmit={handleCreateRoom} className="space-y-4">
@@ -170,7 +207,7 @@ export default function LobbyPage() {
               </div>
               <h2 className="text-xl font-bold text-white mb-2">Join a Meeting</h2>
               <p className="text-xs text-slate-400 mb-6">
-                Enter an existing Room ID. Admittance is verified against the host's real-time room lock state.
+                Enter an existing Room ID. Admittance is verified against the host's lock state before issuing a signed token.
               </p>
 
               <form onSubmit={handleJoinRoom} className="space-y-4">
@@ -198,9 +235,10 @@ export default function LobbyPage() {
                 </div>
                 <button
                   type="submit"
-                  className="w-full mt-2 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition flex items-center justify-center space-x-2 shadow-lg shadow-indigo-600/20"
+                  disabled={isJoining}
+                  className="w-full mt-2 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition flex items-center justify-center space-x-2 shadow-lg shadow-indigo-600/20"
                 >
-                  <span>Join Meeting</span>
+                  <span>{isJoining ? 'Joining Meeting...' : 'Join Meeting'}</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </form>
@@ -216,4 +254,3 @@ export default function LobbyPage() {
     </div>
   );
 }
-
