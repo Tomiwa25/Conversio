@@ -1,12 +1,22 @@
 import { io, Socket } from 'socket.io-client';
 import {
+  AdmitParticipantPayload,
+  ChatMessage,
   IceCandidatePayload,
   JoinRoomPayload,
+  MuteParticipantPayload,
+  NetworkQualityPayload,
   Participant,
+  RaiseHandPayload,
+  ReactionPayload,
+  RemoveParticipantPayload,
   Room,
   RoomLockState,
   SdpPayload,
   SignalingEvent,
+  ToggleWaitingRoomPayload,
+  WaitingParticipant,
+  WaitingRoomUpdatePayload,
   WhiteboardPointer,
   WhiteboardSyncPayload,
 } from '@conversio/shared';
@@ -29,6 +39,24 @@ export interface WebRTCState {
   errorMessage: string | null;
   authToken: string | null;
   encryptionKey: CryptoKey | null;
+
+  // Zoom-Style Collaboration State
+  chatMessages: ChatMessage[];
+  unreadChatCount: number;
+  activeReactions: Array<{ id: string; senderId: string; senderName: string; emoji: string; timestamp: number }>;
+  isHandRaised: boolean;
+  networkQualities: Map<string, 'excellent' | 'fair' | 'poor'>;
+  localNetworkQuality: 'excellent' | 'fair' | 'poor';
+  isWaitingRoom: boolean;
+  waitingRoomTitle: string | null;
+  waitingParticipants: WaitingParticipant[];
+  isRemovedByHost: boolean;
+  hostMutedNotification: boolean;
+
+  // Hardware Device Selection
+  selectedAudioInputId: string | null;
+  selectedVideoInputId: string | null;
+  selectedAudioOutputId: string | null;
 }
 
 export type StateListener = (state: WebRTCState) => void;
@@ -75,6 +103,7 @@ export class WebRTCConnectionManager {
     }
   > = new Map();
 
+  private statsInterval: ReturnType<typeof setInterval> | null = null;
   private stateListeners: Set<StateListener> = new Set();
   private whiteboardListeners: Set<WhiteboardListener> = new Set();
   private pointerListeners: Set<PointerListener> = new Set();
@@ -97,6 +126,22 @@ export class WebRTCConnectionManager {
     errorMessage: null,
     authToken: null,
     encryptionKey: null,
+
+    chatMessages: [],
+    unreadChatCount: 0,
+    activeReactions: [],
+    isHandRaised: false,
+    networkQualities: new Map(),
+    localNetworkQuality: 'excellent',
+    isWaitingRoom: false,
+    waitingRoomTitle: null,
+    waitingParticipants: [],
+    isRemovedByHost: false,
+    hostMutedNotification: false,
+
+    selectedAudioInputId: null,
+    selectedVideoInputId: null,
+    selectedAudioOutputId: null,
   };
 
   constructor(
@@ -140,17 +185,40 @@ export class WebRTCConnectionManager {
   /**
    * Acquire local camera and microphone stream
    */
-  public async initializeMedia(video = true, audio = true): Promise<MediaStream> {
+  public async initializeMedia(
+    video = true,
+    audio = true,
+    audioDeviceId?: string,
+    videoDeviceId?: string
+  ): Promise<MediaStream> {
     try {
+      const audioConstraints: boolean | MediaTrackConstraints = audio
+        ? {
+            echoCancellation: true,
+            noiseSuppression: true,
+            ...(audioDeviceId ? { deviceId: { exact: audioDeviceId } } : {}),
+          }
+        : false;
+
+      const videoConstraints: boolean | MediaTrackConstraints = video
+        ? {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            ...(videoDeviceId ? { deviceId: { exact: videoDeviceId } } : {}),
+          }
+        : false;
+
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: video ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
-        audio: audio ? { echoCancellation: true, noiseSuppression: true } : false,
+        video: videoConstraints,
+        audio: audioConstraints,
       });
 
       this.updateState({
         localStream: stream,
         isAudioMuted: !audio,
         isVideoMuted: !video,
+        selectedAudioInputId: audioDeviceId || this.state.selectedAudioInputId,
+        selectedVideoInputId: videoDeviceId || this.state.selectedVideoInputId,
       });
 
       return stream;
@@ -174,6 +242,7 @@ export class WebRTCConnectionManager {
       roomId,
       currentUser: participant as Participant,
       authToken: token || null,
+      isRemovedByHost: false,
     });
 
     if (!this.state.localStream) {
@@ -190,6 +259,7 @@ export class WebRTCConnectionManager {
     });
 
     this.setupSignalingHandlers(roomId, participant, token);
+    this.startNetworkQualityMonitoring();
   }
 
   private setupSignalingHandlers(
@@ -204,6 +274,29 @@ export class WebRTCConnectionManager {
       this.socket?.emit(SignalingEvent.JOIN_ROOM, payload);
     });
 
+    // Virtual Waiting Room Placement
+    this.socket.on(SignalingEvent.WAITING_ROOM_JOINED, (payload: { roomId: string; title: string }) => {
+      this.updateState({
+        isWaitingRoom: true,
+        waitingRoomTitle: payload.title || 'Meeting',
+        connectionStatus: 'connected',
+      });
+    });
+
+    // Virtual Waiting Room Admittance
+    this.socket.on(SignalingEvent.ADMIT_PARTICIPANT, () => {
+      this.updateState({
+        isWaitingRoom: false,
+      });
+    });
+
+    // Virtual Waiting Room Participant Update (for Host)
+    this.socket.on(SignalingEvent.WAITING_ROOM_UPDATE, (payload: WaitingRoomUpdatePayload) => {
+      this.updateState({
+        waitingParticipants: payload.waitingParticipants,
+      });
+    });
+
     // Room initial state snapshot
     this.socket.on(SignalingEvent.ROOM_STATE, async (payload: { room: Room; participants: Participant[] }) => {
       this.updateState({
@@ -212,6 +305,7 @@ export class WebRTCConnectionManager {
         isLocked: payload.room.lockState.isLocked,
         lockVersion: payload.room.lockState.lockVersion,
         connectionStatus: 'connected',
+        isWaitingRoom: false,
         errorMessage: null,
       });
 
@@ -227,7 +321,6 @@ export class WebRTCConnectionManager {
     this.socket.on(SignalingEvent.PEER_JOINED, async (payload: { participant: Participant }) => {
       const updated = [...this.state.participants.filter((p) => p.id !== payload.participant.id), payload.participant];
       this.updateState({ participants: updated });
-      // The joining peer will create the offer; we wait for their offer
     });
 
     // Peer departed
@@ -236,7 +329,13 @@ export class WebRTCConnectionManager {
       const updated = this.state.participants.filter((p) => p.id !== payload.participantId);
       const newRemoteStreams = new Map(this.state.remoteStreams);
       newRemoteStreams.delete(payload.participantId);
-      this.updateState({ participants: updated, remoteStreams: newRemoteStreams });
+      const newQualities = new Map(this.state.networkQualities);
+      newQualities.delete(payload.participantId);
+      this.updateState({
+        participants: updated,
+        remoteStreams: newRemoteStreams,
+        networkQualities: newQualities,
+      });
     });
 
     // WebRTC Offer received with W3C Perfect Negotiation
@@ -289,7 +388,6 @@ export class WebRTCConnectionManager {
       const pc = this.peerConnections.get(peerId);
 
       if (!pc || !pc.remoteDescription) {
-        // Queue candidate until setRemoteDescription completes
         const queue = this.pendingIceCandidates.get(peerId) || [];
         queue.push(payload.candidate);
         this.pendingIceCandidates.set(peerId, queue);
@@ -301,6 +399,74 @@ export class WebRTCConnectionManager {
       } catch (err) {
         console.error(`[WebRTC] Failed to add ICE candidate from ${peerId}:`, err);
       }
+    });
+
+    // In-Meeting Chat Received
+    this.socket.on(SignalingEvent.CHAT_MESSAGE, (message: ChatMessage) => {
+      this.updateState({
+        chatMessages: [...this.state.chatMessages, message],
+        unreadChatCount: this.state.unreadChatCount + 1,
+      });
+    });
+
+    // Floating Reaction Received
+    this.socket.on(SignalingEvent.REACTION, (reaction: ReactionPayload) => {
+      const item = {
+        id: reaction.id,
+        senderId: reaction.senderId,
+        senderName: reaction.senderName,
+        emoji: reaction.emoji,
+        timestamp: Date.now(),
+      };
+      this.updateState({
+        activeReactions: [...this.state.activeReactions, item],
+      });
+
+      // Automatically expire reaction visual after 3.5 seconds
+      setTimeout(() => {
+        this.updateState({
+          activeReactions: this.state.activeReactions.filter((r) => r.id !== item.id),
+        });
+      }, 3500);
+    });
+
+    // Raise Hand Received
+    this.socket.on(SignalingEvent.RAISE_HAND, (payload: RaiseHandPayload) => {
+      const updated = this.state.participants.map((p) =>
+        p.id === payload.senderId ? { ...p, isHandRaised: payload.isHandRaised } : p
+      );
+      const isLocal = payload.senderId === this.state.currentUser?.id;
+      this.updateState({
+        participants: updated,
+        isHandRaised: isLocal ? payload.isHandRaised : this.state.isHandRaised,
+      });
+    });
+
+    // Host Moderation: Mute Received
+    this.socket.on(SignalingEvent.MUTE_PARTICIPANT, (payload: MuteParticipantPayload) => {
+      const isMe = payload.targetPeerId === 'all' || payload.targetPeerId === this.state.currentUser?.id;
+      if (isMe && payload.muteAudio) {
+        this.toggleAudio(true); // Force mute
+        this.updateState({ hostMutedNotification: true });
+      }
+    });
+
+    // Host Moderation: Remove Received
+    this.socket.on(SignalingEvent.REMOVE_PARTICIPANT, (payload: RemoveParticipantPayload) => {
+      if (payload.targetPeerId === this.state.currentUser?.id) {
+        this.disconnect();
+        this.updateState({
+          isRemovedByHost: true,
+          errorMessage: payload.reason || 'You were removed from the meeting by the host.',
+        });
+      }
+    });
+
+    // Remote Network Quality Metric
+    this.socket.on(SignalingEvent.NETWORK_QUALITY, (payload: NetworkQualityPayload) => {
+      const updated = new Map(this.state.networkQualities);
+      updated.set(payload.userId, payload.quality);
+      this.updateState({ networkQualities: updated });
     });
 
     // Room Lock Update Broadcast
@@ -321,7 +487,7 @@ export class WebRTCConnectionManager {
       this.pointerListeners.forEach((l) => l(pointer));
     });
 
-    // Signaling error / Room locked rejection
+    // Signaling error / Access denied
     this.socket.on(SignalingEvent.ERROR, (err: { code: string; message: string }) => {
       this.updateState({
         connectionStatus: 'error',
@@ -366,7 +532,7 @@ export class WebRTCConnectionManager {
       });
     }
 
-    // Handle incoming remote media tracks (SRTP) with lifecycle listeners
+    // Handle incoming remote media tracks (SRTP)
     pc.ontrack = (event) => {
       const [stream] = event.streams;
       if (stream) {
@@ -396,7 +562,6 @@ export class WebRTCConnectionManager {
 
     if (isInitiator) {
       this.makingOffer.set(peerId, true);
-      // Create Dual DataChannels on the initiator side
       const whiteboardChannel = pc.createDataChannel('whiteboard', { ordered: true });
       const pointerChannel = pc.createDataChannel('pointer', { ordered: false, maxRetransmits: 0 });
       const fileChannel = pc.createDataChannel('file', { ordered: true });
@@ -417,7 +582,6 @@ export class WebRTCConnectionManager {
         this.makingOffer.set(peerId, false);
       }
     } else {
-      // Receiver side: listen for incoming DataChannels
       pc.ondatachannel = (event) => {
         const channel = event.channel;
         const current = this.dataChannels.get(peerId) || ({} as any);
@@ -465,7 +629,6 @@ export class WebRTCConnectionManager {
       channel.binaryType = 'arraybuffer';
       channel.onmessage = (e) => {
         if (e.data instanceof ArrayBuffer) {
-          // File header + chunk handling
           this.handleIncomingFileChunk(e.data);
         }
       };
@@ -508,7 +671,6 @@ export class WebRTCConnectionManager {
       }
     });
 
-    // Fallback over Socket.io if DataChannels not yet established
     if (!sentViaDataChannel && this.socket && this.state.roomId) {
       this.socket.emit(SignalingEvent.WHITEBOARD_STROKE, payload);
     }
@@ -527,7 +689,7 @@ export class WebRTCConnectionManager {
           pChan.send(raw);
           sentViaDataChannel = true;
         } catch (e) {
-          // Ignore dropped pointer frames (unreliable delivery design)
+          // Drop pointer frames on failure
         }
       }
     });
@@ -550,7 +712,6 @@ export class WebRTCConnectionManager {
     let ivBase64: string | undefined = undefined;
     let isEncrypted = false;
 
-    // Apply Client-Side AES-256-GCM Zero-Trust Encryption if key is configured
     if (this.state.encryptionKey) {
       const encrypted = await CryptoUtils.encryptBuffer(this.state.encryptionKey, dataBuffer);
       dataBuffer = encrypted.ciphertext;
@@ -569,17 +730,15 @@ export class WebRTCConnectionManager {
 
     let overallProgress = 0;
 
-    // Concurrently stream file chunks across all peer channels
     await Promise.all(
       activeChannels.map(async (channel) => {
         channel.binaryType = 'arraybuffer';
-        channel.bufferedAmountLowThreshold = 64 * 1024; // 64 KB buffer threshold
+        channel.bufferedAmountLowThreshold = 64 * 1024;
 
         let offset = 0;
         let chunkIndex = 0;
 
         while (offset < totalBytes) {
-          // Backpressure check: wait if bufferedAmount exceeds limit
           if (channel.bufferedAmount > 256 * 1024) {
             await new Promise<void>((resolve) => {
               const onLow = () => {
@@ -592,7 +751,6 @@ export class WebRTCConnectionManager {
 
           const chunkData = dataBuffer.slice(offset, offset + CHUNK_SIZE);
 
-          // Prepend binary header: metadata padded to 320 bytes
           const header = new TextEncoder().encode(
             JSON.stringify({
               fileId,
@@ -651,6 +809,338 @@ export class WebRTCConnectionManager {
   }
 
   /**
+   * Send In-Meeting Chat Message (Public or Private)
+   */
+  public sendChatMessage(text: string, targetId: string = 'everyone', targetName?: string): void {
+    if (!text.trim() || !this.socket || !this.state.roomId || !this.state.currentUser) return;
+
+    const message: ChatMessage = {
+      id: crypto.randomUUID(),
+      roomId: this.state.roomId,
+      senderId: this.state.currentUser.id,
+      senderName: this.state.currentUser.name,
+      targetId: targetId === 'everyone' ? undefined : targetId,
+      targetName: targetId === 'everyone' ? undefined : targetName,
+      text: text.trim(),
+      timestamp: new Date().toISOString(),
+      isPrivate: targetId !== 'everyone',
+    };
+
+    this.socket.emit(SignalingEvent.CHAT_MESSAGE, message);
+  }
+
+  public markChatAsRead(): void {
+    this.updateState({ unreadChatCount: 0 });
+  }
+
+  /**
+   * Send Floating Emoji Reaction
+   */
+  public sendReaction(emoji: string): void {
+    if (!this.socket || !this.state.roomId || !this.state.currentUser) return;
+
+    const reaction: ReactionPayload = {
+      id: crypto.randomUUID(),
+      roomId: this.state.roomId,
+      senderId: this.state.currentUser.id,
+      senderName: this.state.currentUser.name,
+      emoji,
+      timestamp: new Date().toISOString(),
+    };
+
+    this.socket.emit(SignalingEvent.REACTION, reaction);
+
+    // Also display immediately locally
+    const item = {
+      id: reaction.id,
+      senderId: reaction.senderId,
+      senderName: reaction.senderName,
+      emoji,
+      timestamp: Date.now(),
+    };
+    this.updateState({ activeReactions: [...this.state.activeReactions, item] });
+    setTimeout(() => {
+      this.updateState({
+        activeReactions: this.state.activeReactions.filter((r) => r.id !== item.id),
+      });
+    }, 3500);
+  }
+
+  /**
+   * Toggle Raise Hand
+   */
+  public toggleRaiseHand(): boolean {
+    if (!this.socket || !this.state.roomId || !this.state.currentUser) return false;
+
+    const nextState = !this.state.isHandRaised;
+    this.updateState({ isHandRaised: nextState });
+
+    const payload: RaiseHandPayload = {
+      roomId: this.state.roomId,
+      senderId: this.state.currentUser.id,
+      senderName: this.state.currentUser.name,
+      isHandRaised: nextState,
+    };
+
+    this.socket.emit(SignalingEvent.RAISE_HAND, payload);
+    return nextState;
+  }
+
+  /**
+   * Host Moderation: Mute Participant (or Mute All)
+   */
+  public muteParticipant(targetPeerId: string | 'all', muteAudio = true): void {
+    if (!this.socket || !this.state.roomId || !this.state.currentUser) return;
+
+    const payload: MuteParticipantPayload = {
+      roomId: this.state.roomId,
+      requesterId: this.state.currentUser.id,
+      targetPeerId,
+      muteAudio,
+    };
+
+    this.socket.emit(SignalingEvent.MUTE_PARTICIPANT, payload);
+  }
+
+  /**
+   * Host Moderation: Remove Participant
+   */
+  public removeParticipant(targetPeerId: string): void {
+    if (!this.socket || !this.state.roomId || !this.state.currentUser) return;
+
+    const payload: RemoveParticipantPayload = {
+      roomId: this.state.roomId,
+      requesterId: this.state.currentUser.id,
+      targetPeerId,
+      reason: 'The host removed you from this meeting.',
+    };
+
+    this.socket.emit(SignalingEvent.REMOVE_PARTICIPANT, payload);
+  }
+
+  /**
+   * Host Moderation: Admit or Deny Guest from Waiting Room
+   */
+  public admitParticipant(targetUserId: string, admit = true): void {
+    if (!this.socket || !this.state.roomId || !this.state.currentUser) return;
+
+    const payload: AdmitParticipantPayload = {
+      roomId: this.state.roomId,
+      requesterId: this.state.currentUser.id,
+      targetUserId,
+      admit,
+    };
+
+    this.socket.emit(SignalingEvent.ADMIT_PARTICIPANT, payload);
+  }
+
+  /**
+   * Host Moderation: Toggle Virtual Waiting Room Mode
+   */
+  public toggleWaitingRoom(enabled: boolean): void {
+    if (!this.socket || !this.state.roomId || !this.state.currentUser) return;
+
+    const payload: ToggleWaitingRoomPayload = {
+      roomId: this.state.roomId,
+      requesterId: this.state.currentUser.id,
+      enabled,
+    };
+
+    this.socket.emit(SignalingEvent.TOGGLE_WAITING_ROOM, payload);
+  }
+
+  public clearHostMutedNotification(): void {
+    this.updateState({ hostMutedNotification: false });
+  }
+
+  /**
+   * Enumerate Media Hardware Devices
+   */
+  public async enumerateDevices(): Promise<{
+    audioInputs: MediaDeviceInfo[];
+    videoInputs: MediaDeviceInfo[];
+    audioOutputs: MediaDeviceInfo[];
+  }> {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) {
+      return { audioInputs: [], videoInputs: [], audioOutputs: [] };
+    }
+
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    return {
+      audioInputs: devices.filter((d) => d.kind === 'audioinput'),
+      videoInputs: devices.filter((d) => d.kind === 'videoinput'),
+      audioOutputs: devices.filter((d) => d.kind === 'audiooutput'),
+    };
+  }
+
+  /**
+   * Switch Active Microphone Input
+   */
+  public async switchAudioInput(deviceId: string): Promise<void> {
+    const currentMuted = this.state.isAudioMuted;
+    const newStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        deviceId: { exact: deviceId },
+        echoCancellation: true,
+        noiseSuppression: true,
+      },
+    });
+
+    const newAudioTrack = newStream.getAudioTracks()[0];
+    newAudioTrack.enabled = !currentMuted;
+
+    // Replace audio track on local stream
+    if (this.state.localStream) {
+      const oldTrack = this.state.localStream.getAudioTracks()[0];
+      if (oldTrack) {
+        this.state.localStream.removeTrack(oldTrack);
+        oldTrack.stop();
+      }
+      this.state.localStream.addTrack(newAudioTrack);
+    }
+
+    // Replace track across all peer connections
+    for (const pc of this.peerConnections.values()) {
+      const sender = pc.getSenders().find((s) => s.track?.kind === 'audio');
+      if (sender) {
+        await sender.replaceTrack(newAudioTrack);
+      }
+    }
+
+    this.updateState({
+      selectedAudioInputId: deviceId,
+      localStream: this.state.localStream ? new MediaStream(this.state.localStream.getTracks()) : null,
+    });
+  }
+
+  /**
+   * Switch Active Camera Input
+   */
+  public async switchVideoInput(deviceId: string): Promise<void> {
+    const currentMuted = this.state.isVideoMuted;
+    const newStream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        deviceId: { exact: deviceId },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
+    });
+
+    const newVideoTrack = newStream.getVideoTracks()[0];
+    newVideoTrack.enabled = !currentMuted;
+
+    if (this.state.localStream) {
+      const oldTrack = this.state.localStream.getVideoTracks()[0];
+      if (oldTrack) {
+        this.state.localStream.removeTrack(oldTrack);
+        oldTrack.stop();
+      }
+      this.state.localStream.addTrack(newVideoTrack);
+    }
+
+    if (!this.state.isScreenSharing) {
+      for (const pc of this.peerConnections.values()) {
+        const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
+        if (sender) {
+          await sender.replaceTrack(newVideoTrack);
+        }
+      }
+    }
+
+    this.updateState({
+      selectedVideoInputId: deviceId,
+      localStream: this.state.localStream ? new MediaStream(this.state.localStream.getTracks()) : null,
+    });
+  }
+
+  /**
+   * Switch Audio Output Speaker
+   */
+  public async switchAudioOutput(deviceId: string, element?: HTMLMediaElement): Promise<void> {
+    if (element && 'setSinkId' in element) {
+      await (element as any).setSinkId(deviceId);
+    }
+    this.updateState({ selectedAudioOutputId: deviceId });
+  }
+
+  /**
+   * Real-Time WebRTC Network Quality Monitoring via RTCPeerConnection.getStats()
+   */
+  private startNetworkQualityMonitoring(): void {
+    if (this.statsInterval) clearInterval(this.statsInterval);
+
+    this.statsInterval = setInterval(async () => {
+      if (this.peerConnections.size === 0) {
+        this.updateState({ localNetworkQuality: 'excellent' });
+        return;
+      }
+
+      let worstQuality: 'excellent' | 'fair' | 'poor' = 'excellent';
+      const updatedRemoteQualities = new Map(this.state.networkQualities);
+
+      for (const [peerId, pc] of this.peerConnections.entries()) {
+        try {
+          const stats = await pc.getStats();
+          let rtt = 0;
+          let packetLossPct = 0;
+
+          stats.forEach((report) => {
+            if (report.type === 'candidate-pair' && (report.state === 'succeeded' || report.nominated)) {
+              rtt = report.currentRoundTripTime || 0;
+            }
+            if (report.type === 'inbound-rtp' && report.kind === 'video') {
+              const lost = report.packetsLost || 0;
+              const received = report.packetsReceived || 0;
+              const total = lost + received;
+              if (total > 0) {
+                packetLossPct = (lost / total) * 100;
+              }
+            }
+          });
+
+          let peerQuality: 'excellent' | 'fair' | 'poor' = 'excellent';
+          if (packetLossPct >= 8 || rtt >= 0.35) {
+            peerQuality = 'poor';
+          } else if (packetLossPct >= 2 || rtt >= 0.15) {
+            peerQuality = 'fair';
+          }
+
+          updatedRemoteQualities.set(peerId, peerQuality);
+
+          if (peerQuality === 'poor') {
+            worstQuality = 'poor';
+          } else if (peerQuality === 'fair' && worstQuality !== 'poor') {
+            worstQuality = 'fair';
+          }
+        } catch (e) {
+          // Ignore stats errors on closed peers
+        }
+      }
+
+      this.updateState({
+        localNetworkQuality: worstQuality,
+        networkQualities: updatedRemoteQualities,
+      });
+
+      // Relay local quality to room
+      if (this.socket && this.state.roomId && this.state.currentUser) {
+        this.socket.emit(SignalingEvent.NETWORK_QUALITY, {
+          roomId: this.state.roomId,
+          userId: this.state.currentUser.id,
+          quality: worstQuality,
+        });
+      }
+    }, 3000);
+  }
+
+  private stopNetworkQualityMonitoring(): void {
+    if (this.statsInterval) {
+      clearInterval(this.statsInterval);
+      this.statsInterval = null;
+    }
+  }
+
+  /**
    * Toggle Audio Mute
    */
   public toggleAudio(muted?: boolean): boolean {
@@ -689,7 +1179,6 @@ export class WebRTCConnectionManager {
 
     const screenTrack = screenStream.getVideoTracks()[0];
 
-    // Hot-swap video track across all active peer senders without renegotiation
     for (const pc of this.peerConnections.values()) {
       const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
       if (sender) {
@@ -709,10 +1198,8 @@ export class WebRTCConnectionManager {
     if (!this.state.screenStream) return;
 
     this.state.screenStream.getTracks().forEach((track) => track.stop());
-
     const cameraTrack = this.state.localStream?.getVideoTracks()[0] || null;
 
-    // Swap back to camera track
     for (const pc of this.peerConnections.values()) {
       const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
       if (sender) {
@@ -740,6 +1227,8 @@ export class WebRTCConnectionManager {
   }
 
   public disconnect(): void {
+    this.stopNetworkQualityMonitoring();
+
     if (this.state.screenStream) {
       this.state.screenStream.getTracks().forEach((t) => t.stop());
     }
@@ -763,9 +1252,9 @@ export class WebRTCConnectionManager {
       participants: [],
       roomId: null,
       room: null,
+      isWaitingRoom: false,
     });
   }
 }
 
 export const webrtcManager = new WebRTCConnectionManager();
-

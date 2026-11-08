@@ -7,7 +7,11 @@ import { VideoGrid } from '../../../components/VideoGrid';
 import { RoomControls } from '../../../components/RoomControls';
 import { Whiteboard } from '../../../components/Whiteboard';
 import { FileShare } from '../../../components/FileShare';
-import { Loader2, Lock, ArrowLeft } from 'lucide-react';
+import { ChatDrawer } from '../../../components/ChatDrawer';
+import { ParticipantsDrawer } from '../../../components/ParticipantsDrawer';
+import { DeviceSettingsModal } from '../../../components/DeviceSettingsModal';
+import { VirtualWaitingRoom } from '../../../components/VirtualWaitingRoom';
+import { Loader2, Lock, ArrowLeft, MicOff, UserX } from 'lucide-react';
 import { RoomRole } from '@conversio/shared';
 
 function ConferenceRoom({ roomId }: { roomId: string }) {
@@ -17,6 +21,10 @@ function ConferenceRoom({ roomId }: { roomId: string }) {
 
   const [isWhiteboardOpen, setIsWhiteboardOpen] = useState(false);
   const [isFileShareOpen, setIsFileShareOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<'audio' | 'video'>('audio');
 
   const participantName = searchParams.get('name') || 'Guest';
   const userId = searchParams.get('userId') || `user-${Math.random().toString(36).slice(2, 9)}`;
@@ -42,6 +50,30 @@ function ConferenceRoom({ roomId }: { roomId: string }) {
       manager.disconnect();
     };
   }, [roomId, userId, participantName, role, token, manager]);
+
+  // Host Removed View
+  if (state.isRemovedByHost) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center shadow-2xl space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mx-auto">
+            <UserX className="w-6 h-6" />
+          </div>
+          <h2 className="text-xl font-bold text-white">Meeting Ended</h2>
+          <p className="text-xs text-slate-400 leading-relaxed">
+            {state.errorMessage || 'You have been removed from the meeting by the host.'}
+          </p>
+          <button
+            onClick={() => router.push('/')}
+            className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold transition flex items-center justify-center space-x-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Return to Home</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Meeting Locked / Access Denied View
   if (state.connectionStatus === 'error') {
@@ -69,6 +101,11 @@ function ConferenceRoom({ roomId }: { roomId: string }) {
     );
   }
 
+  // Virtual Waiting Room
+  if (state.isWaitingRoom) {
+    return <VirtualWaitingRoom title={state.room?.title} />;
+  }
+
   // Connecting Spinner View
   if (state.connectionStatus === 'connecting') {
     return (
@@ -82,6 +119,24 @@ function ConferenceRoom({ roomId }: { roomId: string }) {
 
   return (
     <div className="relative h-screen w-screen bg-slate-950 flex flex-col overflow-hidden select-none">
+      {/* Host Muted Notification Banner */}
+      {state.hostMutedNotification && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 border border-slate-800 px-4 py-2.5 rounded-2xl shadow-2xl backdrop-blur-md flex items-center space-x-3 animate-in fade-in slide-in-from-top-3">
+          <div className="p-1 rounded-lg bg-rose-500/10 text-rose-400">
+            <MicOff className="w-4 h-4" />
+          </div>
+          <div className="text-xs text-slate-200">
+            The host has muted your microphone. You can unmute when you are ready to speak.
+          </div>
+          <button
+            onClick={() => manager.clearHostMutedNotification()}
+            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium transition"
+          >
+            OK
+          </button>
+        </div>
+      )}
+
       {/* Video Meeting Grid */}
       <VideoGrid />
 
@@ -91,12 +146,33 @@ function ConferenceRoom({ roomId }: { roomId: string }) {
       {/* File Sharing Drawer */}
       <FileShare isOpen={isFileShareOpen} onClose={() => setIsFileShareOpen(false)} />
 
+      {/* In-Meeting Chat Drawer */}
+      <ChatDrawer isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+
+      {/* Participants & Host Moderation Drawer */}
+      <ParticipantsDrawer isOpen={isParticipantsOpen} onClose={() => setIsParticipantsOpen(false)} />
+
+      {/* Audio & Video Device Settings Modal */}
+      <DeviceSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        defaultTab={settingsTab}
+      />
+
       {/* Bottom Meeting Controls Bar */}
       <RoomControls
         onToggleWhiteboard={() => setIsWhiteboardOpen((prev) => !prev)}
         isWhiteboardOpen={isWhiteboardOpen}
         onToggleFileShare={() => setIsFileShareOpen((prev) => !prev)}
         isFileShareOpen={isFileShareOpen}
+        onToggleChat={() => setIsChatOpen((prev) => !prev)}
+        isChatOpen={isChatOpen}
+        onToggleParticipants={() => setIsParticipantsOpen((prev) => !prev)}
+        isParticipantsOpen={isParticipantsOpen}
+        onOpenSettings={(tab) => {
+          setSettingsTab(tab || 'audio');
+          setIsSettingsOpen(true);
+        }}
       />
     </div>
   );

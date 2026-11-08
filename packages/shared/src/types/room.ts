@@ -8,6 +8,8 @@ export interface Participant {
   isAudioMuted: boolean;
   isVideoMuted: boolean;
   isScreenSharing: boolean;
+  isHandRaised?: boolean;
+  networkQuality?: 'excellent' | 'fair' | 'poor';
 }
 
 export interface RoomLockState {
@@ -25,6 +27,7 @@ export interface Room {
   lockState: RoomLockState;
   maxParticipants: number;
   isActive: boolean;
+  waitingRoomEnabled?: boolean;
 }
 
 export interface CreateRoomDto {

@@ -56,7 +56,8 @@ roomRouter.post('/', idempotencyMiddleware, async (req: Request, res: Response) 
 
 // POST /api/rooms/:id/join - Issue Cryptographic Participant Admission Token
 roomRouter.post('/:id/join', async (req: Request, res: Response) => {
-  const room = await roomService.getRoom(req.params.id);
+  const roomId = req.params.id as string;
+  const room = await roomService.getRoom(roomId);
   if (!room) {
     res.status(404).json({ error: 'Room not found' });
     return;
@@ -98,7 +99,8 @@ roomRouter.post('/:id/join', async (req: Request, res: Response) => {
 
 // GET /api/rooms/:id - Retrieve Room Details
 roomRouter.get('/:id', async (req: Request, res: Response) => {
-  const room = await roomService.getRoom(req.params.id);
+  const roomId = req.params.id as string;
+  const room = await roomService.getRoom(roomId);
   if (!room) {
     res.status(404).json({ error: 'Room not found' });
     return;
@@ -108,6 +110,7 @@ roomRouter.get('/:id', async (req: Request, res: Response) => {
 
 // POST /api/rooms/:id/lock - Optimistic Concurrency Room Lock Control with Token Auth
 roomRouter.post('/:id/lock', async (req: Request, res: Response) => {
+  const roomId = req.params.id as string;
   const parseResult = lockRoomSchema.safeParse(req.body);
   if (!parseResult.success) {
     res.status(400).json({
@@ -123,13 +126,13 @@ roomRouter.post('/:id/lock', async (req: Request, res: Response) => {
 
   if (token) {
     const verified = authService.verifyRoomToken(token);
-    if (!verified || verified.roomId !== req.params.id || verified.role !== 'host') {
+    if (!verified || verified.roomId !== roomId || verified.role !== 'host') {
       res.status(403).json({ error: 'Unauthorized: Invalid host authorization token.' });
       return;
     }
   }
 
-  const result = await roomService.setRoomLock(req.params.id, parseResult.data);
+  const result = await roomService.setRoomLock(roomId, parseResult.data);
 
   if (!result.success) {
     if (result.versionMismatch) {
