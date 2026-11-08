@@ -31,3 +31,4 @@ CREATE TRIGGER trigger_update_rooms_timestamp
   BEFORE UPDATE ON rooms
   FOR EACH ROW
   EXECUTE FUNCTION update_timestamp_column();
+

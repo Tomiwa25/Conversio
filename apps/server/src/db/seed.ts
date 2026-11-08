@@ -1,4 +1,5 @@
 import pg from 'pg';
+import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -45,15 +46,18 @@ export async function runSeeder(): Promise<void> {
       },
     ];
 
+    const defaultPasswordHash = bcrypt.hashSync('Password123!', 10);
+
     for (const u of users) {
       await client.query(
-        `INSERT INTO users (id, name, email, role)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO users (id, name, email, password_hash, role)
+         VALUES ($1, $2, $3, $4, $5)
          ON CONFLICT (id) DO UPDATE SET
            name = EXCLUDED.name,
            email = EXCLUDED.email,
+           password_hash = EXCLUDED.password_hash,
            role = EXCLUDED.role`,
-        [u.id, u.name, u.email, u.role]
+        [u.id, u.name, u.email, defaultPasswordHash, u.role]
       );
     }
     console.log(`    ✅ Seeded ${users.length} users.`);
@@ -161,3 +165,4 @@ export async function runSeeder(): Promise<void> {
 if (process.argv[1]?.includes('seed')) {
   runSeeder();
 }
+

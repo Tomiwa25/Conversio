@@ -1,12 +1,30 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Video, ShieldCheck, Plus, Users, ArrowRight, Lock, Sparkles } from 'lucide-react';
+import {
+  Video,
+  ShieldCheck,
+  Plus,
+  Users,
+  ArrowRight,
+  Sparkles,
+  LogIn,
+  LogOut,
+  User,
+  Crown,
+} from 'lucide-react';
 import { IDEMPOTENCY_HEADER } from '@conversio/shared';
+import { useAuth } from '../context/auth.context';
+import { AuthModal } from '../components/AuthModal';
 
 export default function LobbyPage() {
   const router = useRouter();
+  const { user, accessToken, logout } = useAuth();
+
+  // Auth Modal State
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signin');
 
   // New Meeting State
   const [meetingTopic, setMeetingTopic] = useState('');
@@ -22,30 +40,45 @@ export default function LobbyPage() {
 
   const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:4000';
 
+  // Synchronize authenticated user profile to fields
+  useEffect(() => {
+    if (user) {
+      setHostName(user.name);
+      setParticipantName(user.name);
+    }
+  }, [user]);
+
   /**
-   * Start New Meeting
+   * Start New Meeting (Binds to Authenticated Host when signed in)
    */
   const handleCreateMeeting = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!meetingTopic.trim() || !hostName.trim()) return;
+    const effectiveHostName = user?.name || hostName.trim();
+    if (!meetingTopic.trim() || !effectiveHostName) return;
 
     setIsCreating(true);
     setErrorMessage(null);
 
     const idempotencyKey = crypto.randomUUID();
-    const hostId = `user-${crypto.randomUUID().slice(0, 8)}`;
+    const hostId = user?.id || `user-${crypto.randomUUID().slice(0, 8)}`;
 
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        [IDEMPOTENCY_HEADER]: idempotencyKey,
+      };
+
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+
       const res = await fetch(`${serverUrl}/api/rooms`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          [IDEMPOTENCY_HEADER]: idempotencyKey,
-        },
+        headers,
         body: JSON.stringify({
           title: meetingTopic.trim(),
           hostId,
-          hostName: hostName.trim(),
+          hostName: effectiveHostName,
         }),
       });
 
@@ -58,7 +91,7 @@ export default function LobbyPage() {
       const roomId = data.room.id;
       const token = data.token;
       router.push(
-        `/room/${roomId}?token=${encodeURIComponent(token)}&name=${encodeURIComponent(hostName)}&userId=${hostId}&role=host`
+        `/room/${roomId}?token=${encodeURIComponent(token)}&name=${encodeURIComponent(effectiveHostName)}&userId=${data.userId || hostId}&role=host`
       );
     } catch (err: unknown) {
       setErrorMessage(err instanceof Error ? err.message : 'Error starting meeting');
@@ -71,17 +104,27 @@ export default function LobbyPage() {
    */
   const handleJoinMeeting = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!joinMeetingId.trim() || !participantName.trim()) return;
+    const effectiveName = user?.name || participantName.trim();
+    if (!joinMeetingId.trim() || !effectiveName) return;
 
     setIsJoining(true);
     setErrorMessage(null);
 
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+
       const res = await fetch(`${serverUrl}/api/rooms/${joinMeetingId.trim()}/join`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
-          name: participantName.trim(),
+          name: effectiveName,
+          userId: user?.id,
         }),
       });
 
@@ -96,7 +139,7 @@ export default function LobbyPage() {
       const userId = data.userId;
 
       router.push(
-        `/room/${roomId}?token=${encodeURIComponent(token)}&name=${encodeURIComponent(participantName)}&userId=${userId}&role=participant`
+        `/room/${roomId}?token=${encodeURIComponent(token)}&name=${encodeURIComponent(effectiveName)}&userId=${userId}&role=participant`
       );
     } catch (err: unknown) {
       setErrorMessage(err instanceof Error ? err.message : 'Error joining meeting');
@@ -107,23 +150,68 @@ export default function LobbyPage() {
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-between selection:bg-blue-600 selection:text-white">
       {/* Top Navigation */}
-      <header className="px-6 md:px-12 py-5 border-b border-slate-800/80 flex items-center justify-between max-w-7xl mx-auto w-full">
+      <header className="px-6 md:px-12 py-4 border-b border-slate-800/80 flex items-center justify-between max-w-7xl mx-auto w-full">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-600/30">
             <Video className="w-5 h-5 text-white" />
           </div>
           <div>
             <span className="text-xl font-bold tracking-tight text-white">Conversio</span>
-            <span className="hidden sm:inline-block ml-2 text-xs text-blue-400 font-medium px-2 py-0.5 rounded-full bg-blue-500/10">
+            <span className="hidden sm:inline-block ml-2 text-xs text-blue-400 font-medium px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20">
               Meetings
             </span>
           </div>
         </div>
-        <div className="flex items-center space-x-3 text-xs text-slate-300">
-          <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-slate-300">
+
+        {/* User Auth Navigation */}
+        <div className="flex items-center space-x-3 text-xs">
+          <span className="hidden md:inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-slate-300">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Encrypted & Secure</span>
+            <span>Encrypted & Verified</span>
           </span>
+
+          {user ? (
+            <div className="flex items-center space-x-3 pl-2">
+              <div className="flex items-center space-x-2 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-2xl">
+                <div className="w-6 h-6 rounded-full bg-blue-600/30 border border-blue-500/40 text-blue-300 flex items-center justify-center text-xs font-bold">
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex items-center space-x-1">
+                  <span className="text-white font-medium truncate max-w-[120px]">{user.name}</span>
+                  {user.role === 'host' && <Crown className="w-3 h-3 text-amber-400" />}
+                </div>
+              </div>
+              <button
+                onClick={logout}
+                className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-rose-400 border border-slate-800 transition"
+                title="Log Out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => {
+                  setAuthModalMode('signin');
+                  setIsAuthModalOpen(true);
+                }}
+                className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-medium transition flex items-center space-x-1.5"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Sign In</span>
+              </button>
+              <button
+                onClick={() => {
+                  setAuthModalMode('signup');
+                  setIsAuthModalOpen(true);
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold transition shadow-md shadow-blue-600/20"
+              >
+                Create Account
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
@@ -132,7 +220,7 @@ export default function LobbyPage() {
         <div className="text-center max-w-2xl mx-auto mb-10">
           <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold mb-4">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>HD Video Meetings & Team Collaboration</span>
+            <span>HD Video Meetings & Enterprise Collaboration</span>
           </div>
           <h1 className="text-3xl md:text-5xl font-extrabold text-white tracking-tight leading-tight">
             Connect and collaborate with your team anywhere
@@ -174,15 +262,27 @@ export default function LobbyPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Your Name</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Alex Smith"
-                    value={hostName}
-                    onChange={(e) => setHostName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500 transition"
-                  />
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    {user ? 'Hosting As' : 'Your Name'}
+                  </label>
+                  {user ? (
+                    <div className="w-full px-3.5 py-2.5 bg-slate-950/60 border border-slate-800 rounded-xl text-sm text-slate-300 flex items-center justify-between">
+                      <span className="font-medium">{user.name}</span>
+                      <span className="text-[11px] text-blue-400 flex items-center space-x-1">
+                        <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Verified Account</span>
+                      </span>
+                    </div>
+                  ) : (
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Alex Smith"
+                      value={hostName}
+                      onChange={(e) => setHostName(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500 transition"
+                    />
+                  )}
                 </div>
                 <button
                   type="submit"
@@ -248,6 +348,13 @@ export default function LobbyPage() {
       <footer className="py-5 border-t border-slate-800/80 text-center text-xs text-slate-500">
         Conversio • Simple, Secure Real-Time Meetings
       </footer>
+
+      {/* Sign In & Sign Up Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        defaultMode={authModalMode}
+      />
     </div>
   );
 }

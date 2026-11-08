@@ -4,6 +4,7 @@ import { roomService } from '../services/room.service.js';
 import { idempotencyMiddleware } from '../middlewares/idempotency.middleware.js';
 import { signalingGateway } from '../gateways/signaling.gateway.js';
 import { authService } from '../services/auth.service.js';
+import { optionalAuth } from '../middlewares/auth.middleware.js';
 
 const createRoomSchema = z.object({
   title: z.string().min(1, 'Room title is required').max(100),
@@ -25,6 +26,8 @@ const lockRoomSchema = z.object({
 
 export const roomRouter = Router();
 
+roomRouter.use(optionalAuth);
+
 // POST /api/rooms - Idempotent Room Creation with Cryptographic Host Token
 roomRouter.post('/', idempotencyMiddleware, async (req: Request, res: Response) => {
   const parseResult = createRoomSchema.safeParse(req.body);
@@ -36,20 +39,27 @@ roomRouter.post('/', idempotencyMiddleware, async (req: Request, res: Response) 
     return;
   }
 
-  const room = await roomService.createRoom(parseResult.data);
+  // Use authenticated user ID if present; fallback to body hostId
+  const verifiedHostId = req.user?.userId || parseResult.data.hostId;
+  const verifiedHostName = req.user?.name || parseResult.data.hostName;
+
+  const room = await roomService.createRoom({
+    ...parseResult.data,
+    hostId: verifiedHostId,
+  });
 
   // Issue cryptographic Host Admission Token
   const token = authService.generateRoomToken({
     roomId: room.id,
-    userId: parseResult.data.hostId,
-    name: parseResult.data.hostName,
+    userId: verifiedHostId,
+    name: verifiedHostName,
     role: 'host',
   });
 
   res.status(201).json({
     room,
     token,
-    userId: parseResult.data.hostId,
+    userId: verifiedHostId,
     role: 'host',
   });
 });

@@ -51,3 +51,4 @@ CREATE TABLE IF NOT EXISTS room_events (
   metadata JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+

@@ -166,9 +166,25 @@ export class SignalingGateway {
           tokenPayload = authService.verifyRoomToken(activeToken) || undefined;
         }
 
-        // Role elevation protection: trust token claims over raw client payload
-        const verifiedRole = tokenPayload?.role || participant.role || 'participant';
+        // Cryptographic Token Verification & Cross-Room Replay Protection
+        if (tokenPayload && tokenPayload.roomId !== roomId) {
+          socket.emit(SignalingEvent.ERROR, {
+            code: 'INVALID_TOKEN_ROOM',
+            message: 'The provided admission token is not valid for this meeting.',
+          });
+          return;
+        }
+
         const verifiedUserId = tokenPayload?.userId || participant.id;
+
+        // Strict Role Elevation Protection:
+        // Never trust raw participant.role from client. Role must come from signed JWT or match room.hostId.
+        let verifiedRole: 'host' | 'co-host' | 'participant' = 'participant';
+        if (tokenPayload?.role) {
+          verifiedRole = tokenPayload.role;
+        } else if (room.hostId === verifiedUserId) {
+          verifiedRole = 'host';
+        }
 
         // Room Lock Enforcement: prevent non-hosts from entering locked rooms
         if (room.lockState.isLocked && room.hostId !== verifiedUserId) {

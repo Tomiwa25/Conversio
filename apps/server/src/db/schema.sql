@@ -16,15 +16,35 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE TABLE IF NOT EXISTS users (
   id VARCHAR(255) PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
-  email VARCHAR(255) UNIQUE,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
   role VARCHAR(64) NOT NULL DEFAULT 'user', -- 'admin', 'host', 'user'
   avatar_url TEXT,
+  is_verified BOOLEAN NOT NULL DEFAULT TRUE,
+  last_login_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Index for user lookups
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+
+-- ------------------------------------------------------------------------------
+-- 1b. REFRESH TOKENS TABLE (Session Management & Token Rotation)
+-- Stores cryptographically hashed refresh tokens for session revocation.
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash VARCHAR(64) NOT NULL UNIQUE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  revoked_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token_hash ON refresh_tokens(token_hash);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at ON refresh_tokens(expires_at);
 
 -- ------------------------------------------------------------------------------
 -- 2. ROOMS TABLE (Core Collaboration Entity)
@@ -106,3 +126,4 @@ CREATE TRIGGER trigger_update_rooms_timestamp
   BEFORE UPDATE ON rooms
   FOR EACH ROW
   EXECUTE FUNCTION update_timestamp_column();
+
