@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { AuthProvider } from '../context/auth.context';
+import { ThemeProvider } from '../context/theme.context';
 
 export const metadata: Metadata = {
   title: 'Conversio | Real-Time Collaboration & Conferencing',
@@ -14,8 +15,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
-      <body className="min-h-screen bg-slate-950 text-slate-100 antialiased" suppressHydrationWarning>
-        <AuthProvider>{children}</AuthProvider>
+      <body className="min-h-screen bg-slate-50 dark:bg-[#090d16] text-slate-900 dark:text-slate-100 antialiased selection:bg-blue-600 selection:text-white transition-colors duration-200" suppressHydrationWarning>
+        <ThemeProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -48,28 +48,28 @@ export const AuthModal: React.FC<{
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="h-14 px-6 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
+        <div className="h-14 px-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/60">
           <div className="flex items-center space-x-2">
-            <div className="w-6 h-6 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
+            <div className="w-6 h-6 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
               <ShieldCheck className="w-3.5 h-3.5" />
             </div>
-            <h3 className="text-sm font-semibold text-white">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
               {mode === 'signin' ? 'Sign In to Conversio' : 'Create an Account'}
             </h3>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition"
+            className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-white transition"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Tab Switcher */}
-        <div className="grid grid-cols-2 border-b border-slate-800 bg-slate-950/40 text-center text-xs font-semibold">
+        <div className="grid grid-cols-2 border-b border-slate-200 dark:border-slate-800 bg-slate-100/60 dark:bg-slate-950/40 text-center text-xs font-semibold">
           <button
             type="button"
             onClick={() => {
@@ -78,8 +78,8 @@ export const AuthModal: React.FC<{
             }}
             className={`py-3 transition border-b-2 ${
               mode === 'signin'
-                ? 'border-blue-500 text-blue-400 bg-slate-900/40'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900/40'
+                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
             }`}
           >
             Sign In
@@ -92,8 +92,8 @@ export const AuthModal: React.FC<{
             }}
             className={`py-3 transition border-b-2 ${
               mode === 'signup'
-                ? 'border-blue-500 text-blue-400 bg-slate-900/40'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900/40'
+                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
             }`}
           >
             Create Account
@@ -103,47 +103,47 @@ export const AuthModal: React.FC<{
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {errorMessage && (
-            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-400 leading-relaxed">
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-500 dark:text-rose-400 leading-relaxed">
               {errorMessage}
             </div>
           )}
 
           {mode === 'signup' && (
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">Full Name</label>
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">Full Name</label>
               <div className="relative">
-                <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Sarah Connor"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">Email Address</label>
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">Email Address</label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@company.com"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">Password</label>
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">Password</label>
             <div className="relative">
-              <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="password"
                 required
@@ -151,7 +151,7 @@ export const AuthModal: React.FC<{
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="At least 8 characters"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
           </div>
@@ -174,7 +174,7 @@ export const AuthModal: React.FC<{
               <button
                 type="button"
                 onClick={handleFillDemo}
-                className="text-[11px] text-blue-400 hover:text-blue-300 transition flex items-center justify-center space-x-1 mx-auto"
+                className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline transition flex items-center justify-center space-x-1 mx-auto"
               >
                 <Sparkles className="w-3 h-3" />
                 <span>Fill Demo Host Account (sarah@conversio.io)</span>
