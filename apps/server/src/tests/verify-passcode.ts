@@ -124,3 +124,4 @@ runPasscodeTests().catch((err) => {
   console.error('\n❌ Passcode verification failed:', err);
   process.exit(1);
 });
+

@@ -316,3 +316,4 @@ export const BreakoutRoomsModal: React.FC<BreakoutRoomsModalProps> = ({
     </div>
   );
 };
+
