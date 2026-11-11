@@ -47,6 +47,19 @@ services:
       - ./coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
     network_mode: bridge
 
+  # LiveKit SFU Real-Time Media Engine for Multi-Peer Video & Audio Scalability
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: conversio-livekit
+    restart: unless-stopped
+    command: --dev
+    ports:
+      - "7880:7880"       # Signaling & HTTP API
+      - "7881:7881"       # WebRTC TCP fallback
+      - "7882:7882/udp"   # WebRTC UDP media traffic
+    environment:
+      - LIVEKIT_KEYS=${LIVEKIT_API_KEY:-devkey}: ${LIVEKIT_API_SECRET:-secret}
+
   # Node.js WebRTC Signaling & API Server
   server:
     build:
@@ -63,6 +76,9 @@ services:
       - DATABASE_URL=postgresql://conversio_admin:conversio_secure_db_password_2026@postgres:5432/conversio
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=${JWT_SECRET:-conversio-production-secret-jwt-key-2026}
+      - LIVEKIT_URL=http://livekit:7880
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-devkey}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-secret}
       - IDEMPOTENCY_TTL_SECONDS=86400
       - LOCK_MUTEX_TTL_SECONDS=15
     depends_on:
@@ -84,6 +100,7 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - NEXT_PUBLIC_SERVER_URL=http://localhost:4000
+      - NEXT_PUBLIC_LIVEKIT_URL=${NEXT_PUBLIC_LIVEKIT_URL:-ws://localhost:7880}
       - NEXT_PUBLIC_STUN_SERVER_1=stun:stun.l.google.com:19302
       - NEXT_PUBLIC_STUN_SERVER_2=stun:stun1.l.google.com:19302
       - NEXT_PUBLIC_TURN_SERVER_URL=turn:localhost:3478

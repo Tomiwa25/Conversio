@@ -32,6 +32,15 @@ Conversio is a real-time multi-user video conferencing and collaboration suite b
 * Clean unmount disposal via `canvas.dispose()`.
 * State synchronization uses Fabric's built-in `canvas.toJSON()` and `canvas.loadFromJSON()` with debounced broadcast to prevent recursive broadcast loops.
 
+### 6. LiveKit SFU Real-Time Media Engine Integration
+* **Offloaded Media Router**: Complements Conversio's signaling server with a containerized LiveKit SFU (`livekit/livekit-server`), converting exponential $N(N-1)$ mesh upload exhaustion into linear $O(1)$ single-stream uplink.
+* **Granular Scoped Tokens**: `livekitService.generateToken()` dynamically issues video grant JWTs (`canPublish`, `canSubscribe`, `roomAdmin`, `roomRecord`) for authenticated hosts and participants.
+
+### 7. Persistent Team Collaboration Hub (Slack & Zoom Workplace Style)
+* **Channels (`/api/channels`)**: Public and private workspace channels with member roles and persistent message histories.
+* **Direct Messaging (`/api/channels/direct/:userId`)**: High-throughput 1-on-1 conversations with read receipts.
+* **Calendar & Meeting Scheduling (`/api/schedule`)**: Agenda scheduling with timezones, recurrence rules (RRULE), invitee tracking, and passcode protections.
+
 ---
 
 ## ⚙️ Environment Variables Audit
@@ -42,6 +51,10 @@ Conversio is a real-time multi-user video conferencing and collaboration suite b
 | `NODE_ENV` | Both | `development` / `production` | Node environment |
 | `CORS_ORIGIN` | Backend | `http://localhost:3000` | Allowed frontend origins for CORS and Socket.io |
 | `JWT_SECRET` | Backend | `conversio-secret...` | Secret key used to sign and verify admission tokens |
+| `LIVEKIT_URL` | Backend | `http://localhost:7880` | LiveKit media server HTTP/WebSocket endpoint |
+| `LIVEKIT_API_KEY` | Backend | `devkey` | LiveKit API Key for token signing |
+| `LIVEKIT_API_SECRET` | Backend | `secret` | LiveKit API Secret for HMAC-SHA256 signature |
+| `NEXT_PUBLIC_LIVEKIT_URL` | Frontend | `ws://localhost:7880` | Client WebSocket URL for LiveKit room connections |
 | `REDIS_URL` | Backend | `redis://localhost:6379` | Optional: Redis instance for distributed locks and cluster scaling |
 | `IDEMPOTENCY_TTL_SECONDS` | Backend | `86400` (24h) | Cache lifetime for idempotent room responses |
 | `LOCK_MUTEX_TTL_SECONDS` | Backend | `15` | Distributed mutex lock acquisition TTL |

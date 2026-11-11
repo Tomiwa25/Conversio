@@ -53,10 +53,15 @@ export class IdempotencyService {
     const namespacedKey = `idempotency:${key}`;
 
     // 1. Layer 1: Redis In-Flight Mutex / Fast Cache
-    if (this.redisClient) {
-      const redisCheck = await this.acquireRedis(namespacedKey, key, payloadHash, ttlSeconds);
-      if (redisCheck.action !== 'PROCEED') {
-        return redisCheck;
+    if (this.redisClient && this.redisClient.status === 'ready') {
+      try {
+        const redisCheck = await this.acquireRedis(namespacedKey, key, payloadHash, ttlSeconds);
+        if (redisCheck.action !== 'PROCEED') {
+          return redisCheck;
+        }
+      } catch (err) {
+        console.warn('[IdempotencyService] Redis check failed, falling back to in-memory:', err);
+        this.redisClient = null;
       }
     }
 
@@ -110,15 +115,19 @@ export class IdempotencyService {
     const now = Date.now();
 
     // Save to Redis (Cache Layer)
-    if (this.redisClient) {
-      const raw = await this.redisClient.get(namespacedKey);
-      if (raw) {
-        const record: IdempotencyRecord = JSON.parse(raw);
-        record.status = 'RESOLVED';
-        record.statusCode = statusCode;
-        record.responseBody = responseBody;
-        record.expiresAt = now + ttlSeconds * 1000;
-        await this.redisClient.set(namespacedKey, JSON.stringify(record), 'EX', ttlSeconds);
+    if (this.redisClient && this.redisClient.status === 'ready') {
+      try {
+        const raw = await this.redisClient.get(namespacedKey);
+        if (raw) {
+          const record: IdempotencyRecord = JSON.parse(raw);
+          record.status = 'RESOLVED';
+          record.statusCode = statusCode;
+          record.responseBody = responseBody;
+          record.expiresAt = now + ttlSeconds * 1000;
+          await this.redisClient.set(namespacedKey, JSON.stringify(record), 'EX', ttlSeconds);
+        }
+      } catch (err) {
+        console.warn('[IdempotencyService] Redis resolve write failed:', err);
       }
     } else {
       const record = this.memoryStore.get(namespacedKey);
@@ -150,8 +159,12 @@ export class IdempotencyService {
 
   public async fail(key: string): Promise<void> {
     const namespacedKey = `idempotency:${key}`;
-    if (this.redisClient) {
-      await this.redisClient.del(namespacedKey);
+    if (this.redisClient && this.redisClient.status === 'ready') {
+      try {
+        await this.redisClient.del(namespacedKey);
+      } catch (err) {
+        // Ignored
+      }
     } else {
       this.memoryStore.delete(namespacedKey);
     }
@@ -172,7 +185,7 @@ export class IdempotencyService {
     payloadHash: string,
     ttlSeconds: number
   ): Promise<IdempotencyCheckResult> {
-    if (!this.redisClient) {
+    if (!this.redisClient || this.redisClient.status !== 'ready') {
       return this.acquireMemory(namespacedKey, key, payloadHash, ttlSeconds);
     }
 

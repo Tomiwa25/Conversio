@@ -6,6 +6,8 @@ import rateLimit from 'express-rate-limit';
 import { config } from './config.js';
 import { roomRouter } from './routes/room.routes.js';
 import { authRouter } from './routes/auth.routes.js';
+import { channelRouter } from './routes/channel.routes.js';
+import { scheduleRouter } from './routes/schedule.routes.js';
 import { signalingGateway } from './gateways/signaling.gateway.js';
 
 export const app = express();
@@ -49,6 +51,8 @@ app.get('/health', (_req, res) => {
 // REST API routes
 app.use('/api/auth', authRouter);
 app.use('/api/rooms', roomRouter);
+app.use('/api/channels', channelRouter);
+app.use('/api/schedule', scheduleRouter);
 
 // Initialize WebRTC Signaling Gateway (Socket.io)
 signalingGateway.initialize(server);

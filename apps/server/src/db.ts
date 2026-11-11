@@ -119,6 +119,73 @@ export class Database {
         revoked_at TIMESTAMPTZ,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+
+      -- 6. Channels Table
+      CREATE TABLE IF NOT EXISTS channels (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(255) NOT NULL,
+        slug VARCHAR(255) NOT NULL UNIQUE,
+        description TEXT,
+        is_private BOOLEAN NOT NULL DEFAULT FALSE,
+        created_by VARCHAR(255),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      -- 7. Channel Memberships
+      CREATE TABLE IF NOT EXISTS channel_members (
+        channel_id UUID REFERENCES channels(id) ON DELETE CASCADE,
+        user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+        role VARCHAR(64) NOT NULL DEFAULT 'member',
+        joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (channel_id, user_id)
+      );
+
+      -- 8. Channel Messages Table
+      CREATE TABLE IF NOT EXISTS channel_messages (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        channel_id UUID REFERENCES channels(id) ON DELETE CASCADE,
+        sender_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        content TEXT NOT NULL,
+        attachments JSONB DEFAULT '[]'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      -- 9. Direct Messages Table
+      CREATE TABLE IF NOT EXISTS direct_messages (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        sender_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        recipient_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        content TEXT NOT NULL,
+        attachments JSONB DEFAULT '[]'::jsonb,
+        is_read BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      -- 10. Scheduled Meetings Table
+      CREATE TABLE IF NOT EXISTS scheduled_meetings (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        host_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        room_id UUID,
+        scheduled_start TIMESTAMPTZ NOT NULL,
+        scheduled_end TIMESTAMPTZ NOT NULL,
+        timezone VARCHAR(64) NOT NULL DEFAULT 'UTC',
+        passcode VARCHAR(255),
+        recurrence_rule VARCHAR(255),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      -- 11. Scheduled Meeting Invitees
+      CREATE TABLE IF NOT EXISTS scheduled_meeting_invitees (
+        meeting_id UUID REFERENCES scheduled_meetings(id) ON DELETE CASCADE,
+        user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+        status VARCHAR(32) NOT NULL DEFAULT 'pending',
+        PRIMARY KEY (meeting_id, user_id)
+      );
     `;
 
     try {

@@ -10,5 +10,8 @@ export const config = {
   jwtSecret: process.env.JWT_SECRET || 'conversio-development-secret-jwt-key-2026',
   idempotencyTtlSeconds: parseInt(process.env.IDEMPOTENCY_TTL_SECONDS || '86400', 10), // 24 hours
   lockMutexTtlSeconds: parseInt(process.env.LOCK_MUTEX_TTL_SECONDS || '15', 10),
+  livekitUrl: process.env.LIVEKIT_URL || 'http://localhost:7880',
+  livekitApiKey: process.env.LIVEKIT_API_KEY || 'devkey',
+  livekitApiSecret: process.env.LIVEKIT_API_SECRET || 'secret',
 };
 

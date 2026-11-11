@@ -4,7 +4,9 @@ import { roomService } from '../services/room.service.js';
 import { idempotencyMiddleware } from '../middlewares/idempotency.middleware.js';
 import { signalingGateway } from '../gateways/signaling.gateway.js';
 import { authService } from '../services/auth.service.js';
+import { livekitService } from '../services/livekit.service.js';
 import { optionalAuth } from '../middlewares/auth.middleware.js';
+import { config } from '../config.js';
 
 const createRoomSchema = z.object({
   title: z.string().min(1, 'Room title is required').max(100),
@@ -58,9 +60,18 @@ roomRouter.post('/', idempotencyMiddleware, async (req: Request, res: Response) 
     role: 'host',
   });
 
+  // Issue LiveKit SFU Access Token for video/audio media mesh offloading
+  const livekitToken = await livekitService.generateToken({
+    roomId: room.id,
+    userId: verifiedHostId,
+    name: verifiedHostName,
+    role: 'host',
+  });
+
   res.status(201).json({
     room,
     token,
+    livekitToken,
     userId: verifiedHostId,
     role: 'host',
   });
@@ -121,11 +132,65 @@ roomRouter.post('/:id/join', async (req: Request, res: Response) => {
     role: 'participant',
   });
 
+  // Issue LiveKit SFU Access Token for video/audio media mesh offloading
+  const livekitToken = await livekitService.generateToken({
+    roomId: room.id,
+    userId,
+    name: parseResult.data.name,
+    role: 'participant',
+  });
+
   res.status(200).json({
     room,
     token,
+    livekitToken,
     userId,
     role: 'participant',
+  });
+});
+
+const livekitTokenSchema = z.object({
+  userId: z.string().optional(),
+  name: z.string().optional(),
+  role: z.enum(['host', 'participant']).optional(),
+});
+
+// POST /api/rooms/:id/livekit-token - Standalone endpoint to generate/refresh a LiveKit media token
+roomRouter.post('/:id/livekit-token', async (req: Request, res: Response) => {
+  const roomId = req.params.id as string;
+  const room = await roomService.getRoom(roomId);
+  if (!room) {
+    res.status(404).json({ error: 'Room not found' });
+    return;
+  }
+
+  const parseResult = livekitTokenSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    res.status(400).json({
+      error: 'Validation failed',
+      details: parseResult.error.flatten(),
+    });
+    return;
+  }
+
+  const userId = req.user?.userId || parseResult.data.userId || `user-${crypto.randomUUID().slice(0, 8)}`;
+  const name = req.user?.name || parseResult.data.name || 'Participant';
+  const role = req.user?.role === 'host' || parseResult.data.role === 'host' ? 'host' : 'participant';
+
+  const livekitToken = await livekitService.generateToken({
+    roomId,
+    userId,
+    name,
+    role,
+  });
+
+  res.status(200).json({
+    livekitToken,
+    roomId,
+    userId,
+    name,
+    role,
+    serverUrl: config.livekitUrl,
   });
 });
 
