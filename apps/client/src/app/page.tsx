@@ -31,11 +31,16 @@ import {
   Mic,
   Smile,
   Laptop,
+  HelpCircle,
+  Cookie,
 } from 'lucide-react';
 import { IDEMPOTENCY_HEADER } from '@conversio/shared';
 import { useAuth } from '../context/auth.context';
 import { AuthModal } from '../components/AuthModal';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { PrivacyModal } from '../components/PrivacyModal';
+import { HelpModal } from '../components/HelpModal';
+import { CookieConsent } from '../components/CookieConsent';
 
 type ProductTab =
   | 'meetings'
@@ -54,6 +59,11 @@ export default function LobbyPage() {
   // Auth Modal State
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signin');
+
+  // Supporting Dialogs
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const [isCookieForceOpen, setIsCookieForceOpen] = useState(false);
 
   // Announcement Banner Visibility
   const [showBanner, setShowBanner] = useState(true);
@@ -271,6 +281,13 @@ export default function LobbyPage() {
                 className="hover:text-blue-600 dark:hover:text-blue-400 transition"
               >
                 Architecture & Security
+              </button>
+              <button
+                onClick={() => setIsHelpModalOpen(true)}
+                className="hover:text-blue-600 dark:hover:text-blue-400 transition flex items-center space-x-1"
+              >
+                <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
+                <span>Help Center</span>
               </button>
             </nav>
           </div>
@@ -502,6 +519,250 @@ export default function LobbyPage() {
                 <ArrowRight className="w-4 h-4" />
               </button>
             </form>
+          </div>
+        </div>
+
+        {/* ================================================================= */}
+        {/* WHAT CONVERSIO LOOKS LIKE: High-Fidelity UI Graphic Showcase     */}
+        {/* ================================================================= */}
+        <div className="mt-16 max-w-5xl mx-auto px-2 sm:px-4">
+          <div className="text-center mb-6 space-y-1.5">
+            <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-xs font-bold">
+              <Monitor className="w-3.5 h-3.5" />
+              <span>Experience The Conversio Workplace</span>
+            </div>
+            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+              Inside a Live Conversio Conference
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-lg mx-auto leading-relaxed">
+              Engineered with sub-100ms latency, multi-user vector whiteboard, instant screen sharing, and cryptographic zero-trust privacy.
+            </p>
+          </div>
+
+          {/* Application Window Frame */}
+          <div className="relative rounded-3xl border border-slate-200/90 dark:border-slate-800 bg-slate-900 shadow-2xl shadow-blue-600/10 overflow-hidden text-white font-sans transition-all duration-300 hover:shadow-blue-600/20">
+            {/* Window Top Titlebar */}
+            <div className="h-10 px-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between text-xs select-none">
+              <div className="flex items-center space-x-2">
+                <span className="w-3 h-3 rounded-full bg-rose-500 inline-block" />
+                <span className="w-3 h-3 rounded-full bg-amber-500 inline-block" />
+                <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block" />
+                <span className="ml-3 text-[11px] font-medium text-slate-400 flex items-center space-x-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block" />
+                  <span className="text-slate-200 font-semibold truncate max-w-[200px] sm:max-w-none">Conversio Room: Engineering Sprint &amp; Architecture</span>
+                  <span className="text-slate-500 hidden sm:inline">&bull; 00:24:18</span>
+                </span>
+              </div>
+              <div className="flex items-center space-x-3 text-[10px] text-slate-400">
+                <span className="hidden sm:inline-flex items-center space-x-1 px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-400 font-medium">
+                  <ShieldCheck className="w-3 h-3" />
+                  <span>AES-256 E2EE</span>
+                </span>
+                <span className="flex items-center space-x-1 text-emerald-400 font-mono">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  <span>38ms SFU</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Main Stage Grid Area */}
+            <div className="p-4 sm:p-6 bg-gradient-to-b from-slate-900 via-slate-950 to-black grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch min-h-[460px]">
+              {/* Left / Center: Active Speaker Main Feed + Filmstrip */}
+              <div className="lg:col-span-8 flex flex-col justify-between space-y-4">
+                {/* Main Active Speaker Tile */}
+                <div className="relative rounded-2xl bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 border-2 border-emerald-500/80 shadow-lg shadow-emerald-500/10 overflow-hidden flex-1 min-h-[280px] flex items-center justify-center p-6">
+                  {/* Decorative Speaker Video Simulation Background */}
+                  <div className="absolute inset-0 bg-cover bg-center opacity-30" style={{ backgroundImage: "radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.25) 0%, transparent 70%)" }} />
+
+                  {/* Active Speaker Avatar */}
+                  <div className="relative z-10 text-center space-y-3">
+                    <div className="relative inline-block">
+                      <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-tr from-blue-500 via-indigo-600 to-purple-600 flex items-center justify-center text-2xl font-extrabold shadow-2xl shadow-blue-500/40 border-2 border-white/40 ring-4 ring-emerald-500/40 animate-pulse">
+                        SC
+                      </div>
+                      <div className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-emerald-500 text-white shadow-md">
+                        <Mic className="w-3.5 h-3.5" />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm sm:text-base font-bold text-white flex items-center justify-center space-x-1.5">
+                        <span>Sarah Connor</span>
+                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-blue-500/20 text-blue-300 border border-blue-400/30">Host</span>
+                      </div>
+                      <p className="text-[11px] text-emerald-400 font-medium">Active Speaker &bull; LiveKit SFU 1080p60</p>
+                    </div>
+
+                    {/* Simulated Voice Activity Visualizer (Audio Waveform) */}
+                    <div className="flex items-center justify-center space-x-1 h-5 pt-1">
+                      <span className="w-1 bg-emerald-400 rounded-full h-2 animate-pulse" />
+                      <span className="w-1 bg-emerald-400 rounded-full h-4 animate-bounce" />
+                      <span className="w-1 bg-emerald-400 rounded-full h-5 animate-pulse" />
+                      <span className="w-1 bg-emerald-400 rounded-full h-3 animate-bounce" />
+                      <span className="w-1 bg-emerald-400 rounded-full h-5 animate-pulse" />
+                      <span className="w-1 bg-emerald-400 rounded-full h-2 animate-bounce" />
+                      <span className="w-1 bg-emerald-400 rounded-full h-4 animate-pulse" />
+                    </div>
+                  </div>
+
+                  {/* Floating AI Note Taker Live Badge */}
+                  <div className="absolute top-3 left-3 bg-slate-900/85 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-xl text-[10px] flex items-center space-x-2">
+                    <Sparkles className="w-3 h-3 text-amber-400" />
+                    <span className="text-slate-200">AI Transcript: &ldquo;LiveKit SFU reduces mesh uplink overhead...&rdquo;</span>
+                  </div>
+
+                  {/* Recording Badge */}
+                  <div className="absolute top-3 right-3 bg-rose-500/15 border border-rose-500/30 text-rose-300 px-2.5 py-1 rounded-xl text-[10px] font-bold flex items-center space-x-1.5">
+                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse inline-block" />
+                    <span>REC</span>
+                  </div>
+                </div>
+
+                {/* Filmstrip: Other Attendees */}
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 text-xs">
+                  <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-2 flex items-center space-x-2">
+                    <div className="w-7 h-7 rounded-full bg-purple-500/30 text-purple-300 flex items-center justify-center font-bold text-[10px] border border-purple-400/20">AM</div>
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-semibold text-slate-200 truncate">Alex Morgan</div>
+                      <div className="text-[9px] text-slate-400">Screen Sharing</div>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-2 flex items-center space-x-2">
+                    <div className="w-7 h-7 rounded-full bg-emerald-500/30 text-emerald-300 flex items-center justify-center font-bold text-[10px] border border-emerald-400/20">DK</div>
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-semibold text-slate-200 truncate">David Kim</div>
+                      <div className="text-[9px] text-slate-400">Muted</div>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-2 flex items-center space-x-2">
+                    <div className="w-7 h-7 rounded-full bg-pink-500/30 text-pink-300 flex items-center justify-center font-bold text-[10px] border border-pink-400/20">ER</div>
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-semibold text-slate-200 truncate">Elena Rostova</div>
+                      <div className="text-[9px] text-emerald-400">Listening</div>
+                    </div>
+                  </div>
+
+                  <div className="hidden sm:flex bg-slate-900/80 border border-slate-800 rounded-xl p-2 items-center space-x-2">
+                    <div className="w-7 h-7 rounded-full bg-blue-500/30 text-blue-300 flex items-center justify-center font-bold text-[10px] border border-blue-400/20">MW</div>
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-semibold text-slate-200 truncate">Marcus W.</div>
+                      <div className="text-[9px] text-slate-400">Video HD</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Side: Interactive Whiteboard & In-Meeting Chat Drawer Mockup */}
+              <div className="lg:col-span-4 flex flex-col justify-between space-y-3">
+                {/* Whiteboard Preview Card */}
+                <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-white flex items-center space-x-1.5">
+                      <FileText className="w-3.5 h-3.5 text-blue-400" />
+                      <span>Shared Whiteboard</span>
+                    </span>
+                    <span className="text-[10px] text-emerald-400 font-mono">Sync: Live</span>
+                  </div>
+                  {/* Vector Whiteboard Mini Canvas Illustration */}
+                  <div className="h-24 bg-slate-950/80 rounded-xl border border-dashed border-slate-800 p-2 relative overflow-hidden flex items-center justify-around">
+                    <div className="px-2 py-1 rounded bg-blue-600/20 border border-blue-500/40 text-[9px] text-blue-300 font-mono">
+                      Client Next.js
+                    </div>
+                    <div className="text-slate-600 text-xs">&rarr;</div>
+                    <div className="px-2 py-1 rounded bg-indigo-600/20 border border-indigo-500/40 text-[9px] text-indigo-300 font-mono">
+                      LiveKit SFU
+                    </div>
+                    <div className="text-slate-600 text-xs">&rarr;</div>
+                    <div className="px-2 py-1 rounded bg-emerald-600/20 border border-emerald-500/40 text-[9px] text-emerald-300 font-mono">
+                      PostgreSQL
+                    </div>
+                  </div>
+                </div>
+
+                {/* In-Meeting Live Chat Preview Card */}
+                <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 space-y-2.5 flex-1 flex flex-col justify-between">
+                  <div className="flex items-center justify-between text-xs pb-1.5 border-b border-slate-800">
+                    <span className="font-bold text-white flex items-center space-x-1.5">
+                      <MessageSquare className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>In-Meeting Chat</span>
+                    </span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 font-semibold">3 New</span>
+                  </div>
+
+                  <div className="space-y-2 text-[11px] font-sans">
+                    <div>
+                      <div className="flex items-baseline space-x-1">
+                        <span className="font-semibold text-blue-400">Elena R.</span>
+                        <span className="text-[9px] text-slate-500">10:22 AM</span>
+                      </div>
+                      <p className="text-slate-300 text-[10.5px]">LiveKit SFU cut round-trip latency to 38ms! 🚀</p>
+                    </div>
+
+                    <div>
+                      <div className="flex items-baseline space-x-1">
+                        <span className="font-semibold text-purple-400">Alex M.</span>
+                        <span className="text-[9px] text-slate-500">10:23 AM</span>
+                      </div>
+                      <p className="text-slate-300 text-[10.5px]">Uploading the client-side AES encrypted specs now.</p>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-800/80 flex items-center space-x-2 text-[11px] text-slate-500">
+                    <div className="w-full bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800 text-[10px] text-slate-400">
+                      Type message to everyone...
+                    </div>
+                    <Send className="w-3.5 h-3.5 text-blue-500" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Floating Zoom Dock Controls Bar */}
+            <div className="h-16 px-4 sm:px-6 bg-slate-950/95 border-t border-slate-800 flex items-center justify-between select-none">
+              <div className="flex items-center space-x-2 sm:space-x-3 text-xs">
+                <div className="flex flex-col items-center px-2 py-1 rounded-xl bg-slate-900 border border-slate-800 text-emerald-400">
+                  <Mic className="w-4 h-4" />
+                  <span className="text-[9px] text-slate-300 mt-0.5">Mute</span>
+                </div>
+                <div className="flex flex-col items-center px-2 py-1 rounded-xl bg-slate-900 border border-slate-800 text-blue-400">
+                  <Video className="w-4 h-4" />
+                  <span className="text-[9px] text-slate-300 mt-0.5">Video</span>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2 sm:space-x-4 text-xs">
+                <div className="hidden sm:flex flex-col items-center px-2 py-1 rounded-xl text-slate-400 hover:text-white">
+                  <ShieldCheck className="w-4 h-4 text-blue-400" />
+                  <span className="text-[9px] mt-0.5">Security</span>
+                </div>
+                <div className="flex flex-col items-center px-2 py-1 rounded-xl text-slate-400 hover:text-white">
+                  <Users className="w-4 h-4" />
+                  <span className="text-[9px] mt-0.5">12 Peers</span>
+                </div>
+                <div className="flex flex-col items-center px-2 py-1 rounded-xl text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
+                  <Monitor className="w-4 h-4" />
+                  <span className="text-[9px] mt-0.5 font-bold">Share</span>
+                </div>
+                <div className="flex flex-col items-center px-2 py-1 rounded-xl text-indigo-400">
+                  <FileText className="w-4 h-4" />
+                  <span className="text-[9px] mt-0.5">Canvas</span>
+                </div>
+                <div className="hidden sm:flex flex-col items-center px-2 py-1 rounded-xl text-amber-400">
+                  <Smile className="w-4 h-4" />
+                  <span className="text-[9px] mt-0.5">React</span>
+                </div>
+              </div>
+
+              <div className="flex items-center">
+                <button
+                  type="button"
+                  className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold transition shadow-md shadow-rose-600/30"
+                >
+                  Leave
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -935,57 +1196,138 @@ webrtcManager.startActiveSpeakerMonitoring();`}
           <div className="space-y-3">
             <h5 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">Product</h5>
             <ul className="space-y-2">
-              <li className="hover:text-blue-500 cursor-pointer">Video Meetings</li>
-              <li className="hover:text-blue-500 cursor-pointer">AI Note Taker</li>
-              <li className="hover:text-blue-500 cursor-pointer">ConversioMate AI</li>
-              <li className="hover:text-blue-500 cursor-pointer">Breakout Groups</li>
-              <li className="hover:text-blue-500 cursor-pointer">Interactive Whiteboard</li>
+              <li onClick={() => setActiveTab('meetings')} className="hover:text-blue-500 cursor-pointer">Video Meetings</li>
+              <li onClick={() => setActiveTab('notes')} className="hover:text-blue-500 cursor-pointer">AI Note Taker</li>
+              <li onClick={() => setActiveTab('ai-mate')} className="hover:text-blue-500 cursor-pointer">ConversioMate AI</li>
+              <li onClick={() => setIsHelpModalOpen(true)} className="hover:text-blue-500 cursor-pointer flex items-center space-x-1">
+                <span>Help Center &amp; Guides</span>
+              </li>
+              <li onClick={() => setActiveTab('canvas')} className="hover:text-blue-500 cursor-pointer">Interactive Whiteboard</li>
             </ul>
           </div>
           <div className="space-y-3">
             <h5 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">Unified Comms</h5>
             <ul className="space-y-2">
-              <li className="hover:text-blue-500 cursor-pointer">Team Chat Channels</li>
-              <li className="hover:text-blue-500 cursor-pointer">Conversio Cloud Phone</li>
-              <li className="hover:text-blue-500 cursor-pointer">Hardware Rooms</li>
-              <li className="hover:text-blue-500 cursor-pointer">Employee Culture Hub</li>
+              <li onClick={() => setActiveTab('chat-phone')} className="hover:text-blue-500 cursor-pointer">Team Chat Channels</li>
+              <li onClick={() => setActiveTab('chat-phone')} className="hover:text-blue-500 cursor-pointer">Conversio Cloud Phone</li>
+              <li onClick={() => setActiveTab('rooms-workvivo')} className="hover:text-blue-500 cursor-pointer">Hardware Rooms</li>
+              <li onClick={() => setActiveTab('rooms-workvivo')} className="hover:text-blue-500 cursor-pointer">Employee Culture Hub</li>
             </ul>
           </div>
           <div className="space-y-3">
             <h5 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">Developers</h5>
             <ul className="space-y-2">
-              <li className="hover:text-blue-500 cursor-pointer">WebRTC Video SDK</li>
-              <li className="hover:text-blue-500 cursor-pointer">REST APIs & Webhooks</li>
-              <li className="hover:text-blue-500 cursor-pointer">GitHub Repository</li>
-              <li className="hover:text-blue-500 cursor-pointer">Open Documentation</li>
+              <li onClick={() => setActiveTab('developer')} className="hover:text-blue-500 cursor-pointer">WebRTC Video SDK</li>
+              <li onClick={() => setActiveTab('developer')} className="hover:text-blue-500 cursor-pointer">REST APIs &amp; Webhooks</li>
+              <li>
+                <a
+                  href="https://github.com/Tomiwa25/Conversio"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-blue-500 cursor-pointer"
+                >
+                  GitHub Repository
+                </a>
+              </li>
+              <li onClick={() => setIsHelpModalOpen(true)} className="hover:text-blue-500 cursor-pointer">Open Documentation</li>
             </ul>
           </div>
           <div className="space-y-3">
-            <h5 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">Security & Compliance</h5>
+            <h5 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">Security &amp; Community</h5>
             <ul className="space-y-2">
-              <li className="hover:text-blue-500 cursor-pointer">End-to-End Encryption</li>
-              <li className="hover:text-blue-500 cursor-pointer">Bcrypt Room Passcodes</li>
-              <li className="hover:text-blue-500 cursor-pointer">Virtual Waiting Rooms</li>
-              <li className="hover:text-blue-500 cursor-pointer">Privacy Guarantee</li>
+              <li onClick={() => setIsPrivacyModalOpen(true)} className="hover:text-blue-500 cursor-pointer">End-to-End Encryption</li>
+              <li onClick={() => setIsPrivacyModalOpen(true)} className="hover:text-blue-500 cursor-pointer">Bcrypt Room Passcodes</li>
+              <li onClick={() => setIsPrivacyModalOpen(true)} className="hover:text-blue-500 cursor-pointer">Privacy &amp; Zero-Trust</li>
+              <li onClick={() => setIsCookieForceOpen(true)} className="hover:text-blue-500 cursor-pointer">Cookie Preferences</li>
             </ul>
+
+            {/* Social Media Links: Twitter/X, Instagram, WhatsApp */}
+            <div className="pt-2">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 dark:text-slate-500 block mb-2">Connect With Us</span>
+              <div className="flex items-center space-x-3">
+                {/* Twitter / X */}
+                <a
+                  href="https://x.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-sky-500 dark:hover:text-sky-400 flex items-center justify-center transition shadow-sm"
+                  title="Follow us on X (Twitter)"
+                  aria-label="Follow Conversio on X (Twitter)"
+                >
+                  <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 24.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                  </svg>
+                </a>
+
+                {/* Instagram */}
+                <a
+                  href="https://instagram.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-pink-500 dark:hover:text-pink-400 flex items-center justify-center transition shadow-sm"
+                  title="Follow us on Instagram"
+                  aria-label="Follow Conversio on Instagram"
+                >
+                  <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+                    <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                    <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+                  </svg>
+                </a>
+
+                {/* WhatsApp */}
+                <a
+                  href="https://whatsapp.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-emerald-500 dark:hover:text-emerald-400 flex items-center justify-center transition shadow-sm"
+                  title="Chat with Conversio Support on WhatsApp"
+                  aria-label="Chat with Conversio on WhatsApp"
+                >
+                  <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                    <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm5.78 14.07c-.24.68-1.4 1.25-1.92 1.33-.51.08-1.17.12-3.79-.96-3.23-1.34-5.32-4.64-5.48-4.85-.16-.21-1.3-1.74-1.3-3.32 0-1.58.82-2.35 1.11-2.67.29-.32.63-.4.85-.4.21 0 .42 0 .61.01.2.01.46-.07.72.55.26.62.9 2.2.98 2.36.08.16.13.35.03.56-.11.21-.16.34-.32.53-.16.19-.34.42-.49.57-.16.16-.33.34-.14.67.19.33.84 1.39 1.8 2.25 1.24 1.11 2.29 1.45 2.62 1.61.33.16.52.14.71-.08.2-.21.84-.98 1.07-1.32.23-.33.46-.28.77-.16.31.12 1.98.93 2.32 1.1.34.17.57.26.65.4.08.14.08.82-.16 1.5z" />
+                  </svg>
+                </a>
+              </div>
+            </div>
           </div>
         </div>
 
         <div className="max-w-7xl mx-auto pt-8 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between text-slate-500 text-[11px] space-y-2 sm:space-y-0">
-          <span>&copy; {new Date().getFullYear()} Conversio Collaboration Platform • Built with Next.js, WebRTC, TypeScript, PostgreSQL & Redis.</span>
+          <span>&copy; {new Date().getFullYear()} Conversio Collaboration Platform &bull; Built with Next.js, WebRTC, TypeScript, PostgreSQL &amp; Redis.</span>
           <div className="flex items-center space-x-4">
-            <span className="hover:text-blue-500 cursor-pointer">Privacy Policy</span>
-            <span className="hover:text-blue-500 cursor-pointer">Terms of Service</span>
-            <span className="hover:text-blue-500 cursor-pointer">Security Overview</span>
+            <button onClick={() => setIsPrivacyModalOpen(true)} className="hover:text-blue-500 transition">Privacy Policy</button>
+            <button onClick={() => setIsPrivacyModalOpen(true)} className="hover:text-blue-500 transition">Security Overview</button>
+            <button onClick={() => setIsHelpModalOpen(true)} className="hover:text-blue-500 transition">Help Center</button>
+            <button onClick={() => setIsCookieForceOpen(true)} className="hover:text-blue-500 transition">Cookie Settings</button>
           </div>
         </div>
       </footer>
 
-      {/* Sign In & Sign Up Modal */}
+      {/* Sign In & Sign Up Modal with Visual Graphic Banner */}
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         defaultMode={authModalMode}
+      />
+
+      {/* Privacy Policy & Zero-Trust Security Modal */}
+      <PrivacyModal
+        isOpen={isPrivacyModalOpen}
+        onClose={() => setIsPrivacyModalOpen(false)}
+      />
+
+      {/* Help Center & FAQ Modal */}
+      <HelpModal
+        isOpen={isHelpModalOpen}
+        onClose={() => setIsHelpModalOpen(false)}
+      />
+
+      {/* Cookie & Storage Consent Banner */}
+      <CookieConsent
+        onOpenPrivacy={() => setIsPrivacyModalOpen(true)}
+        forceOpen={isCookieForceOpen}
+        onCloseForce={() => setIsCookieForceOpen(false)}
       />
     </div>
   );
