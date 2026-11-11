@@ -3,6 +3,7 @@ import { AddressInfo } from 'node:net';
 import { app, server } from '../index.js';
 import { IDEMPOTENCY_HEADER } from '@conversio/shared';
 import { authService } from '../services/auth.service.js';
+import { db } from '../db.js';
 
 process.env.NODE_ENV = 'test';
 
@@ -216,6 +217,7 @@ async function runTests() {
     failed++;
   } finally {
     server.close();
+    await db.close();
   }
 
   console.log(`\n📊 Test Summary: ${passed} Passed, ${failed} Failed.`);

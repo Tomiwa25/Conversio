@@ -6,6 +6,7 @@ import { AddressInfo } from 'node:net';
 import { app, server } from '../index.js';
 import { TokenVerifier } from 'livekit-server-sdk';
 import { config } from '../config.js';
+import { db } from '../db.js';
 
 async function run() {
   console.log('\n🚀 [Conversio Hub & LiveKit Suite] Starting Verification...\n');
@@ -184,6 +185,7 @@ async function run() {
     console.log('\n📊 Hub & LiveKit Test Summary: 6 Passed, 0 Failed.\n');
   } finally {
     server.close();
+    await db.close();
   }
 }
 

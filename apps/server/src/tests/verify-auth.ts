@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { app, server } from '../index.js';
+import { db } from '../db.js';
 
 const PORT = 4002;
 const BASE_URL = `http://localhost:${PORT}`;
@@ -118,6 +119,7 @@ async function runAuthSecurityTests() {
     console.log('\n📊 Auth Test Summary: 8 Passed, 0 Failed.\n');
   } finally {
     server.close();
+    await db.close();
   }
 }
 

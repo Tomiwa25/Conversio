@@ -140,16 +140,16 @@ export class AuthService {
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
         [userId, name.trim(), normalizedEmail, passwordHash, role, createdAt, createdAt]
       );
-    } else {
-      this.inMemoryUsers.set(normalizedEmail, {
-        id: userId,
-        name: name.trim(),
-        email: normalizedEmail,
-        passwordHash,
-        role,
-        createdAt,
-      });
     }
+
+    this.inMemoryUsers.set(normalizedEmail, {
+      id: userId,
+      name: name.trim(),
+      email: normalizedEmail,
+      passwordHash,
+      role,
+      createdAt,
+    });
 
     const user: UserProfile = {
       id: userId,
@@ -185,7 +185,9 @@ export class AuthService {
       if (res.rows.length > 0) {
         userRecord = res.rows[0];
       }
-    } else {
+    }
+
+    if (!userRecord) {
       const mem = this.inMemoryUsers.get(normalizedEmail);
       if (mem) {
         userRecord = {
@@ -250,7 +252,6 @@ export class AuthService {
           createdAt: row.created_at,
         };
       }
-      return null;
     }
 
     for (const u of this.inMemoryUsers.values()) {

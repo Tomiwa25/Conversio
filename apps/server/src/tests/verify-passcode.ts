@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import http from 'node:http';
 import { app } from '../index';
 import { roomService } from '../services/room.service';
+import { db } from '../db';
 
 const PORT = 4002;
 
@@ -117,6 +118,7 @@ async function runPasscodeTests() {
     console.log('\n📊 Passcode Test Summary: 5 Passed, 0 Failed.\n');
   } finally {
     server.close();
+    await db.close();
   }
 }
 

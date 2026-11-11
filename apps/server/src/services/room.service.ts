@@ -39,7 +39,7 @@ export class RoomService {
           [roomId, dto.hostId, JSON.stringify({ title: dto.title, passcodeProtected: Boolean(passcodeHash) })]
         );
 
-        return {
+        const createdRoom: Room = {
           id: row.id,
           title: row.title,
           hostId: row.host_id,
@@ -52,6 +52,13 @@ export class RoomService {
           isActive: row.is_active,
           isPasscodeProtected: Boolean(row.passcode_hash),
         };
+
+        this.memoryRooms.set(roomId, createdRoom);
+        if (passcodeHash) {
+          this.memoryPasscodes.set(roomId, passcodeHash);
+        }
+
+        return createdRoom;
       } catch (err) {
         console.warn('[RoomService] PostgreSQL createRoom failed, falling back to memory:', err);
       }
@@ -84,23 +91,26 @@ export class RoomService {
     if (pool) {
       try {
         const res = await pool.query('SELECT * FROM rooms WHERE id = $1 AND is_active = true', [roomId]);
-        if (res.rows.length === 0) return null;
-        const row = res.rows[0];
-        return {
-          id: row.id,
-          title: row.title,
-          hostId: row.host_id,
-          createdAt: row.created_at.toISOString(),
-          lockState: {
-            isLocked: row.is_locked,
-            lockedBy: row.locked_by || undefined,
-            lockedAt: row.locked_at ? row.locked_at.toISOString() : undefined,
-            lockVersion: row.lock_version,
-          },
-          maxParticipants: row.max_participants,
-          isActive: row.is_active,
-          isPasscodeProtected: Boolean(row.passcode_hash),
-        };
+        if (res.rows.length > 0) {
+          const row = res.rows[0];
+          const roomObj: Room = {
+            id: row.id,
+            title: row.title,
+            hostId: row.host_id,
+            createdAt: row.created_at.toISOString(),
+            lockState: {
+              isLocked: row.is_locked,
+              lockedBy: row.locked_by || undefined,
+              lockedAt: row.locked_at ? row.locked_at.toISOString() : undefined,
+              lockVersion: row.lock_version,
+            },
+            maxParticipants: row.max_participants,
+            isActive: row.is_active,
+            isPasscodeProtected: Boolean(row.passcode_hash),
+          };
+          this.memoryRooms.set(roomId, roomObj);
+          return roomObj;
+        }
       } catch (err) {
         console.warn('[RoomService] PostgreSQL getRoom failed, falling back to memory:', err);
       }
@@ -150,64 +160,59 @@ export class RoomService {
     if (pool) {
       try {
         const existingRes = await pool.query('SELECT * FROM rooms WHERE id = $1', [roomId]);
-        if (existingRes.rows.length === 0) {
-          return { success: false, error: 'Room not found' };
-        }
+        if (existingRes.rows.length > 0) {
+          const existing = existingRes.rows[0];
 
-        const existing = existingRes.rows[0];
+          if (existing.host_id !== dto.userId) {
+            return { success: false, error: 'Only the room host can lock or unlock this room' };
+          }
 
-        if (existing.host_id !== dto.userId) {
-          return { success: false, error: 'Only the room host can lock or unlock this room' };
-        }
+          if (existing.lock_version !== dto.expectedVersion) {
+            return {
+              success: false,
+              versionMismatch: true,
+              error: `Lock version mismatch. Expected ${dto.expectedVersion}, but room is currently at version ${existing.lock_version}.`,
+            };
+          }
 
-        if (existing.lock_version !== dto.expectedVersion) {
-          return {
-            success: false,
-            versionMismatch: true,
-            error: `Lock version mismatch. Expected ${dto.expectedVersion}, but room is currently at version ${existing.lock_version}.`,
-          };
-        }
+          const updateQuery = `
+            UPDATE rooms
+            SET is_locked = $1, locked_by = $2, locked_at = $3, lock_version = lock_version + 1, updated_at = NOW()
+            WHERE id = $4 AND lock_version = $5
+            RETURNING *;
+          `;
+          const lockedAt = dto.isLocked ? new Date() : null;
+          const lockedBy = dto.isLocked ? dto.userId : null;
 
-        const updateQuery = `
-          UPDATE rooms
-          SET is_locked = $1, locked_by = $2, locked_at = $3, lock_version = lock_version + 1, updated_at = NOW()
-          WHERE id = $4 AND lock_version = $5
-          RETURNING *;
-        `;
-        const lockedAt = dto.isLocked ? new Date() : null;
-        const lockedBy = dto.isLocked ? dto.userId : null;
-
-        const updateRes = await pool.query(updateQuery, [
-          dto.isLocked,
-          lockedBy,
-          lockedAt,
-          roomId,
-          dto.expectedVersion,
-        ]);
-
-        if (updateRes.rows.length === 0) {
-          return {
-            success: false,
-            versionMismatch: true,
-            error: 'Concurrent lock modification detected.',
-          };
-        }
-
-        const updated = updateRes.rows[0];
-
-        await pool.query(
-          `INSERT INTO room_events (room_id, event_type, actor_id, metadata) VALUES ($1, $2, $3, $4)`,
-          [
+          const updateRes = await pool.query(updateQuery, [
+            dto.isLocked,
+            lockedBy,
+            lockedAt,
             roomId,
-            dto.isLocked ? 'ROOM_LOCKED' : 'ROOM_UNLOCKED',
-            dto.userId,
-            JSON.stringify({ newVersion: updated.lock_version }),
-          ]
-        );
+            dto.expectedVersion,
+          ]);
 
-        return {
-          success: true,
-          room: {
+          if (updateRes.rows.length === 0) {
+            return {
+              success: false,
+              versionMismatch: true,
+              error: 'Concurrent lock modification detected.',
+            };
+          }
+
+          const updated = updateRes.rows[0];
+
+          await pool.query(
+            `INSERT INTO room_events (room_id, event_type, actor_id, metadata) VALUES ($1, $2, $3, $4)`,
+            [
+              roomId,
+              dto.isLocked ? 'ROOM_LOCKED' : 'ROOM_UNLOCKED',
+              dto.userId,
+              JSON.stringify({ newVersion: updated.lock_version }),
+            ]
+          );
+
+          const updatedRoom: Room = {
             id: updated.id,
             title: updated.title,
             hostId: updated.host_id,
@@ -221,8 +226,17 @@ export class RoomService {
             maxParticipants: updated.max_participants,
             isActive: updated.is_active,
             isPasscodeProtected: Boolean(updated.passcode_hash),
-          },
-        };
+          };
+
+          this.memoryRooms.set(roomId, updatedRoom);
+
+          return {
+            success: true,
+            room: updatedRoom,
+          };
+        } else if (!this.memoryRooms.has(roomId)) {
+          return { success: false, error: 'Room not found' };
+        }
       } catch (err) {
         console.warn('[RoomService] PostgreSQL setRoomLock failed, falling back to memory:', err);
       }
