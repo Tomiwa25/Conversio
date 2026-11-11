@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Video,
@@ -325,24 +326,18 @@ export default function LobbyPage() {
               </div>
             ) : (
               <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => {
-                    setAuthModalMode('signin');
-                    setIsAuthModalOpen(true);
-                  }}
-                  className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                <Link
+                  href="/signin"
+                  className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-[#0E71EB] dark:hover:text-[#0E71EB] hover:bg-slate-100 dark:hover:bg-slate-800 transition"
                 >
                   Sign In
-                </button>
-                <button
-                  onClick={() => {
-                    setAuthModalMode('signup');
-                    setIsAuthModalOpen(true);
-                  }}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition shadow-md shadow-blue-600/25 flex items-center space-x-1.5"
+                </Link>
+                <Link
+                  href="/signup"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#0E71EB] hover:bg-[#005ce6] text-white transition shadow-md shadow-blue-600/25 flex items-center space-x-1.5"
                 >
                   <span>Sign Up Free</span>
-                </button>
+                </Link>
               </div>
             )}
           </div>
