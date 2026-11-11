@@ -90,4 +90,3 @@ export const ThemeToggle: React.FC<{ compact?: boolean }> = ({ compact = false }
     </div>
   );
 };
-
