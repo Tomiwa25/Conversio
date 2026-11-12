@@ -2,165 +2,44 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Palette ─────────────────────────────────────────────────────────────
-   Studio glass. Light mode swaps the ground and ink; the signal accent is
-   darkened to keep 4.5:1 against chalk so link and active text stay legible.
-*/
 :root {
-  --c-ink: #f3f4ee;
-  --c-glass: #ffffff;
-  --c-chalk: #0d1614;
-  --c-signal: #6c8a16;
-  --c-signal-soft: #e3ebc9;
-  --c-pulse: #c63b1c;
-  --c-wave: #0f766e;
-  --c-line: #d4d9cb;
-  --c-line-soft: #e6e9df;
-  --c-muted: #5d6a66;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --surface: #ffffff;
+  --surface-border: #e2e8f0;
 }
 
 .dark {
-  --c-ink: #08100f;
-  --c-glass: #0e1816;
-  --c-chalk: #edefea;
-  --c-signal: #c6f24e;
-  --c-signal-soft: rgba(198, 242, 78, 0.12);
-  --c-pulse: #ff5a36;
-  --c-wave: #5eead4;
-  --c-line: #1e2a27;
-  --c-line-soft: #17211f;
-  --c-muted: #8a9a95;
+  --background: #090d16;
+  --foreground: #f8fafc;
+  --surface: #0f172a;
+  --surface-border: #1e293b;
 }
 
-@layer base {
-  html {
-    -webkit-text-size-adjust: 100%;
-    text-rendering: optimizeLegibility;
-  }
-
-  body {
-    background: var(--c-ink);
-    color: var(--c-chalk);
-    font-family: var(--font-sans), 'Geist', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
-    font-size: 15px;
-    line-height: 1.55;
-    overflow-x: hidden;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    transition: background-color 0.2s ease, color 0.2s ease;
-  }
-
-  /* The one place a serif shows up by default — anything else uses the
-     .font-display utility explicitly. */
-  h1,
-  h2,
-  h3 {
-    font-weight: 400;
-    letter-spacing: -0.012em;
-  }
-
-  ::selection {
-    background: var(--c-signal);
-    color: var(--c-ink);
-  }
-
-  /* Keyboard focus is a 2px signal ring with an offset so it never collides
-     with hairline borders. Mouse users see nothing. */
-  :focus-visible {
-    outline: 2px solid var(--c-signal);
-    outline-offset: 2px;
-    border-radius: 2px;
-  }
-
-  input,
-  textarea,
-  select,
-  button {
-    font: inherit;
-    color: inherit;
-  }
-
-  input::placeholder,
-  textarea::placeholder {
-    color: var(--c-muted);
-    opacity: 0.75;
-  }
-
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background: var(--c-line);
-    border-radius: 999px;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: var(--c-muted);
-  }
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  overflow-x: hidden;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
-@layer components {
-  /* Hairline panel: the one surface the whole product leans on. */
-  .panel {
-    background: var(--c-glass);
-    border: 1px solid var(--c-line);
-    border-radius: 2px;
-  }
-
-  .hairline {
-    border-color: var(--c-line);
-  }
-
-  /* A sweep that matches the channel-grid motif, used on primary buttons. */
-  .sweep::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.12), transparent);
-    transform: translateX(-100%);
-    pointer-events: none;
-  }
-
-  .sweep:hover::after {
-    animation: sweep 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-  }
+/* Custom scrollbars for smooth modern feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
 
-@keyframes sweep {
-  to {
-    transform: translateX(100%);
-  }
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-/* ── Reduced motion ──────────────────────────────────────────────────────
-   Users who ask for less motion get opacity-only transitions, and any
-   infinite animation (waveform, scanline, reconnect sweep) stops at a
-   static resting state.
-*/
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-
-  .wave-bar {
-    height: 6px !important;
-    animation: none !important;
-  }
-
-  .animate-scanline,
-  .animate-reconnect,
-  .animate-soft-pulse {
-    animation: none !important;
-  }
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 9999px;
 }
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+

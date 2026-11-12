@@ -1,24 +1,11 @@
 import type { Metadata } from 'next';
-import { Instrument_Serif } from 'next/font/google';
-import { GeistSans } from 'geist/font/sans';
-import { GeistMono } from 'geist/font/mono';
 import './globals.css';
 import { AuthProvider } from '../context/auth.context';
 import { ThemeProvider } from '../context/theme.context';
-import { ToastProvider } from '../components/primitives/Toast';
-
-const instrumentSerif = Instrument_Serif({
-  subsets: ['latin'],
-  weight: '400',
-  style: ['normal', 'italic'],
-  variable: '--font-display',
-  display: 'swap',
-});
 
 export const metadata: Metadata = {
-  title: 'Conversio — live rooms for teams',
-  description:
-    'Video, whiteboard, files and chat in one place. Start a call in ten seconds, or join with a room code.',
+  title: 'Conversio | Real-Time Collaboration & Conferencing',
+  description: 'Enterprise-grade WebRTC video conferencing with collaborative whiteboard, screen sharing, and encrypted file sharing.',
 };
 
 export default function RootLayout({
@@ -27,12 +14,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`dark ${instrumentSerif.variable} ${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
-      <body className="min-h-screen bg-ink text-chalk antialiased" suppressHydrationWarning>
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <body className="min-h-screen bg-slate-50 dark:bg-[#090d16] text-slate-900 dark:text-slate-100 antialiased selection:bg-blue-600 selection:text-white transition-colors duration-200" suppressHydrationWarning>
         <ThemeProvider>
-          <AuthProvider>
-            <ToastProvider>{children}</ToastProvider>
-          </AuthProvider>
+          <AuthProvider>{children}</AuthProvider>
         </ThemeProvider>
       </body>
     </html>
