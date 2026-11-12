@@ -1,87 +1,91 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { useTheme, Theme } from '../context/theme.context';
-import { Sun, Moon, Laptop, Check } from 'lucide-react';
+import { Sun, Moon, Monitor, Check } from 'lucide-react';
+import { clsx } from 'clsx';
+import { Theme, useTheme } from '../context/theme.context';
+import { MonoLabel } from './primitives';
 
+const OPTIONS: Array<{ value: Theme; label: string; icon: React.ElementType }> = [
+  { value: 'light', label: 'Light', icon: Sun },
+  { value: 'dark', label: 'Dark', icon: Moon },
+  { value: 'system', label: 'System', icon: Monitor },
+];
+
+/**
+ * Appearance picker. A hairline control in the header that opens a small glass
+ * menu. The trigger shows the theme that is actually rendering, not the stored
+ * preference, so "System" never leaves you guessing.
+ */
 export const ThemeToggle: React.FC<{ compact?: boolean }> = ({ compact = false }) => {
   const { theme, resolvedTheme, setTheme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    if (!isOpen) return;
 
-  const options: Array<{ value: Theme; label: string; icon: React.ReactNode }> = [
-    {
-      value: 'light',
-      label: 'Light Mode',
-      icon: <Sun className="w-3.5 h-3.5 text-amber-500" />,
-    },
-    {
-      value: 'dark',
-      label: 'Dark Mode',
-      icon: <Moon className="w-3.5 h-3.5 text-blue-400" />,
-    },
-    {
-      value: 'system',
-      label: 'System Match',
-      icon: <Laptop className="w-3.5 h-3.5 text-slate-400" />,
-    },
-  ];
+    const onPointer = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setIsOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false);
+    };
+
+    document.addEventListener('mousedown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [isOpen]);
+
+  const CurrentIcon = resolvedTheme === 'dark' ? Moon : Sun;
 
   return (
-    <div className="relative inline-block text-left" ref={menuRef}>
+    <div className="relative inline-block" ref={rootRef}>
       <button
-        onClick={() => setIsOpen((prev) => !prev)}
-        className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition text-xs font-medium backdrop-blur-md shadow-sm"
-        title={`Theme: ${theme.charAt(0).toUpperCase() + theme.slice(1)} (${resolvedTheme})`}
-        aria-label="Toggle display theme"
+        type="button"
+        onClick={() => setIsOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        title={`Theme: ${theme}`}
+        className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-control border border-line text-chalk hover:bg-glass transition-colors text-xs"
       >
-        {resolvedTheme === 'dark' ? (
-          <Moon className="w-3.5 h-3.5 text-blue-400" />
-        ) : (
-          <Sun className="w-3.5 h-3.5 text-amber-500" />
-        )}
-        {!compact && (
-          <span className="hidden sm:inline capitalize text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-            {theme}
-          </span>
-        )}
+        <CurrentIcon className="w-3.5 h-3.5 text-muted" aria-hidden />
+        {!compact && <span className="hidden sm:inline capitalize">{theme}</span>}
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-44 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
-          <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-2 py-1">
-            Appearance
+        <div
+          role="menu"
+          className="absolute right-0 mt-1.5 w-40 rounded-panel border border-line bg-ink shadow-float p-1 z-50 animate-rise"
+        >
+          <div className="px-2 py-1.5">
+            <MonoLabel tone="hint" className="text-2xs">
+              appearance
+            </MonoLabel>
           </div>
-          {options.map((opt) => {
-            const isSelected = theme === opt.value;
+          {OPTIONS.map(({ value, label, icon: Icon }) => {
+            const selected = theme === value;
             return (
               <button
-                key={opt.value}
+                key={value}
+                type="button"
+                role="menuitemradio"
+                aria-checked={selected}
                 onClick={() => {
-                  setTheme(opt.value);
+                  setTheme(value);
                   setIsOpen(false);
                 }}
-                className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium transition ${
-                  isSelected
-                    ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-300'
-                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
+                className={clsx(
+                  'w-full flex items-center gap-2 h-8 px-2 rounded-control text-xs transition-colors',
+                  selected ? 'text-chalk bg-signal-soft' : 'text-muted hover:text-chalk hover:bg-glass',
+                )}
               >
-                <div className="flex items-center space-x-2">
-                  {opt.icon}
-                  <span>{opt.label}</span>
-                </div>
-                {isSelected && <Check className="w-3.5 h-3.5 text-blue-500" />}
+                <Icon className="w-3.5 h-3.5 flex-none" aria-hidden />
+                <span>{label}</span>
+                {selected && <Check className="w-3.5 h-3.5 text-signal ml-auto" aria-hidden />}
               </button>
             );
           })}
