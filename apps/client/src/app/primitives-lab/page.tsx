@@ -9,14 +9,24 @@ import {
   Button,
   MonoLabel,
   ChannelGrid,
+  ToastProvider,
   useToast,
 } from '../../components/primitives';
 
+// The lab is a static specimen, so it needs its own ToastProvider to prerender.
 export default function PrimitivesLab() {
+  return (
+    <ToastProvider>
+      <Lab />
+    </ToastProvider>
+  );
+}
+
+function Lab() {
   const { push } = useToast();
   return (
     <main className="min-h-screen bg-ink text-chalk p-8 max-w-6xl mx-auto space-y-8">
-      <header className="flex items-end justify-between border-b border-line pb-6">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between border-b border-line pb-6">
         <div>
           <h1 className="font-display text-3xl leading-none">Primitives</h1>
           <p className="text-sm text-muted mt-2">Stage 1 specimen — every element below uses the real components</p>
@@ -26,16 +36,16 @@ export default function PrimitivesLab() {
 
       <Panel padding="lg">
         <Waveform height={44} bars={32} barWidth={2} />
-        <div className="flex items-center justify-between mt-3">
+        <div className="flex flex-col gap-2 mt-3 sm:flex-row sm:items-center sm:justify-between">
           <MonoLabel tone="hint">local stream · 240p → 1080p</MonoLabel>
-          <span className="flex items-center gap-1.5">
+          <span className="flex flex-wrap items-center gap-1.5">
             <SignalMeter quality="good" label="Good connection" />
             <MonoLabel>28.4 kB/s</MonoLabel>
           </span>
         </div>
       </Panel>
 
-      <ChannelGrid cols={3}>
+      <ChannelGrid cols={3} ruled>
         <div className="p-6 space-y-4">
           <div className="flex items-center justify-between"><LiveDot label="Live" /><MonoLabel tone="hint">04 peers</MonoLabel></div>
           <div className="flex flex-wrap gap-2">
@@ -52,7 +62,7 @@ export default function PrimitivesLab() {
           </div>
         </div>
         <div className="p-6 space-y-3">
-          <MonoLabel tone="hint">Room code</MonoLabel>
+          <MonoLabel tone="hint" className="block mb-1">Room code</MonoLabel>
           <MonoLabel className="text-base">aKx9-Kq2</MonoLabel>
           <div className="flex gap-1.5 pt-2">
             <LiveDot state="live" tone="pulse" size={8} label="Recording" />
