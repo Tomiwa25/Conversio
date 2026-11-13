@@ -56,21 +56,23 @@ function ConferenceRoom({ roomId }: { roomId: string }) {
   // Host Removed View
   if (state.isRemovedByHost) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center shadow-2xl space-y-4">
-          <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mx-auto">
-            <UserX className="w-6 h-6" />
+      <div className="min-h-screen bg-ink flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-glass border border-line rounded-panel p-8 text-center space-y-5 animate-rise">
+          <div className="w-11 h-11 rounded-panel bg-pulse/10 border border-pulse/25 text-pulse flex items-center justify-center mx-auto">
+            <UserX className="w-5 h-5" />
           </div>
-          <h2 className="text-xl font-bold text-white">Meeting Ended</h2>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            {state.errorMessage || 'You have been removed from the meeting by the host.'}
-          </p>
+          <div className="space-y-2">
+            <h2 className="text-xl font-display text-chalk">Meeting ended</h2>
+            <p className="text-xs text-muted leading-relaxed">
+              {state.errorMessage || 'You have been removed from the meeting by the host.'}
+            </p>
+          </div>
           <button
             onClick={() => router.push('/')}
-            className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold transition flex items-center justify-center space-x-2"
+            className="w-full py-2.5 bg-chalk/[0.06] hover:bg-chalk/10 border border-line text-chalk rounded-control text-xs font-medium transition flex items-center justify-center space-x-2"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Return to Home</span>
+            <span>Return to home</span>
           </button>
         </div>
       </div>
@@ -80,23 +82,23 @@ function ConferenceRoom({ roomId }: { roomId: string }) {
   // Meeting Locked / Access Denied View
   if (state.connectionStatus === 'error') {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center shadow-2xl">
-          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto mb-4">
-            <Lock className="w-6 h-6" />
+      <div className="min-h-screen bg-ink flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-glass border border-line rounded-panel p-8 text-center animate-rise">
+          <div className="w-11 h-11 rounded-panel bg-pulse/10 border border-pulse/25 text-pulse flex items-center justify-center mx-auto mb-5">
+            <Lock className="w-5 h-5" />
           </div>
-          <h2 className="text-xl font-bold text-white mb-2">Meeting Locked</h2>
-          <p className="text-xs text-slate-400 mb-6 leading-relaxed">
+          <h2 className="text-xl font-display text-chalk mb-2">Meeting locked</h2>
+          <p className="text-xs text-muted mb-6 leading-relaxed">
             {state.errorMessage?.includes('locked')
               ? 'The host has locked this meeting. No new participants can join at this time. Please contact the host to unlock the meeting.'
               : state.errorMessage || 'Unable to join this meeting.'}
           </p>
           <button
             onClick={() => router.push('/')}
-            className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold transition flex items-center justify-center space-x-2"
+            className="w-full py-2.5 bg-chalk/[0.06] hover:bg-chalk/10 border border-line text-chalk rounded-control text-xs font-medium transition flex items-center justify-center space-x-2"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Return to Home</span>
+            <span>Return to home</span>
           </button>
         </div>
       </div>
@@ -111,28 +113,28 @@ function ConferenceRoom({ roomId }: { roomId: string }) {
   // Connecting Spinner View
   if (state.connectionStatus === 'connecting') {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 space-y-4">
-        <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-        <p className="text-sm font-semibold text-white">Connecting to meeting...</p>
-        <span className="text-xs text-slate-400">Preparing your audio, video, and collaboration tools</span>
+      <div className="min-h-screen bg-ink flex flex-col items-center justify-center p-6 space-y-4">
+        <Loader2 className="w-7 h-7 text-signal animate-spin" />
+        <p className="text-sm font-medium text-chalk">Connecting to meeting…</p>
+        <span className="text-xs text-muted">Preparing your audio, video, and collaboration tools</span>
       </div>
     );
   }
 
   return (
-    <div className="relative h-screen w-screen bg-slate-950 flex flex-col overflow-hidden select-none">
+    <div className="relative h-screen w-screen bg-ink flex flex-col overflow-hidden select-none">
       {/* Host Muted Notification Banner */}
       {state.hostMutedNotification && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 border border-slate-800 px-4 py-2.5 rounded-2xl shadow-2xl backdrop-blur-md flex items-center space-x-3 animate-in fade-in slide-in-from-top-3">
-          <div className="p-1 rounded-lg bg-rose-500/10 text-rose-400">
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 bg-glass border border-line px-4 py-2.5 rounded-panel shadow-float backdrop-blur-xl flex items-center space-x-3 animate-rise">
+          <div className="p-1 rounded-control bg-pulse/10 text-pulse">
             <MicOff className="w-4 h-4" />
           </div>
-          <div className="text-xs text-slate-200">
+          <div className="text-xs text-chalk/80">
             The host has muted your microphone. You can unmute when you are ready to speak.
           </div>
           <button
             onClick={() => manager.clearHostMutedNotification()}
-            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium transition"
+            className="px-2.5 py-1 rounded-control bg-chalk/[0.06] hover:bg-chalk/10 border border-line text-chalk text-xs font-medium transition"
           >
             OK
           </button>

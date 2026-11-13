@@ -34,6 +34,38 @@ import {
 
 const REACTION_EMOJIS = ['👍', '👏', '❤️', '😂', '🎉', '😮'];
 
+/**
+ * Control bar key. Quiet chrome: one neutral resting state, one signal state
+ * for "on", and pulse reserved for genuinely destructive/urgent states
+ * (muted, recording). Every accent hue the old bar used collapses into these.
+ */
+const ControlButton: React.FC<{
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  active?: boolean;
+  urgent?: boolean;
+  title?: string;
+  className?: string;
+  badge?: React.ReactNode;
+}> = ({ icon, label, onClick, active, urgent, title, className = '', badge }) => (
+  <button
+    onClick={onClick}
+    title={title || label}
+    className={`relative flex flex-col items-center justify-center w-12 md:w-14 h-14 rounded-control border transition-colors duration-200 ${
+      urgent
+        ? 'bg-pulse/15 border-pulse/40 text-pulse hover:bg-pulse/25'
+        : active
+        ? 'bg-signal/15 border-signal/40 text-signal hover:bg-signal/25'
+        : 'bg-chalk/[0.04] border-line text-chalk/70 hover:bg-chalk/[0.08] hover:text-chalk'
+    } ${className}`}
+  >
+    {badge}
+    {icon}
+    <span className="text-[10px] mt-1 font-medium tracking-wide">{label}</span>
+  </button>
+);
+
 export const RoomControls: React.FC<{
   onToggleWhiteboard: () => void;
   isWhiteboardOpen: boolean;
@@ -166,61 +198,59 @@ export const RoomControls: React.FC<{
   };
 
   return (
-    <div className="h-20 bg-slate-900/95 border-t border-slate-800/80 px-4 md:px-6 flex items-center justify-between backdrop-blur-md relative select-none">
+    <div className="h-20 bg-glass/80 border-t border-line px-4 md:px-6 flex items-center justify-between backdrop-blur-xl relative select-none">
       {/* Left: Meeting Info & Quick Actions */}
       <div className="flex items-center space-x-3">
         <div className="flex flex-col">
-          <span className="text-sm font-semibold text-white truncate max-w-[150px] md:max-w-[200px]">
+          <span className="text-sm font-medium text-chalk truncate max-w-[150px] md:max-w-[200px]">
             {state.room?.title || 'Team Meeting'}
           </span>
-          <span className="text-[11px] text-slate-400">
+          <span className="text-[11px] text-muted">
             {totalParticipants} participant{totalParticipants === 1 ? '' : 's'}
           </span>
         </div>
 
         <button
           onClick={handleCopyLink}
-          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center space-x-1.5 text-xs font-medium"
+          className="p-1.5 rounded-control bg-chalk/[0.04] hover:bg-chalk/[0.08] border border-line text-chalk/70 hover:text-chalk transition flex items-center space-x-1.5"
           title="Copy Invitation Link"
         >
-          {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-          <span className="hidden sm:inline text-[11px]">{copied ? 'Copied' : 'Invite'}</span>
+          {copied ? <Check className="w-3.5 h-3.5 text-signal" /> : <Copy className="w-3.5 h-3.5" />}
+          <span className="hidden sm:inline text-[11px] font-medium">{copied ? 'Copied' : 'Invite'}</span>
         </button>
 
         {state.isLocked && (
-          <span className="hidden lg:inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+          <span className="hidden lg:inline-flex items-center space-x-1 px-2 py-1 rounded-control text-[10px] font-medium bg-chalk/[0.04] text-muted border border-line">
             <Lock className="w-3 h-3" />
             <span>Locked</span>
           </span>
         )}
 
         {(state.isRecording || recordingState.isRecording) && (
-          <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-rose-600/20 border border-rose-500/40 text-rose-400 text-xs font-semibold animate-pulse shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-            <span>REC {recordingState.isRecording ? formatElapsed(recordingState.elapsedSeconds) : 'RECORDING'}</span>
+          <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-control bg-pulse/15 border border-pulse/40 text-pulse text-[11px] font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-pulse animate-soft-pulse" />
+            <span className="tracking-wide">
+              {recordingState.isRecording ? `REC ${formatElapsed(recordingState.elapsedSeconds)}` : 'RECORDING'}
+            </span>
             {state.recorderName && !recordingState.isRecording && (
-              <span className="text-[10px] text-slate-400 font-normal hidden xl:inline">({state.recorderName})</span>
+              <span className="text-[10px] text-muted font-normal hidden xl:inline">({state.recorderName})</span>
             )}
           </div>
         )}
       </div>
 
-      {/* Center: Main Zoom-Style Control Bar */}
-      <div className="flex items-center space-x-1.5 md:space-x-2.5">
+      {/* Center: Main Control Bar */}
+      <div className="flex items-center space-x-1.5 md:space-x-2">
         {/* Microphone with Caret */}
         <div className="relative flex items-center">
-          <button
+          <ControlButton
+            icon={state.isAudioMuted ? <MicOff className="w-4 h-4 md:w-5 md:h-5" /> : <Mic className="w-4 h-4 md:w-5 md:h-5" />}
+            label={state.isAudioMuted ? 'Unmute' : 'Mute'}
+            urgent={state.isAudioMuted}
             onClick={() => manager.toggleAudio()}
-            className={`flex flex-col items-center justify-center w-12 md:w-14 h-14 rounded-l-2xl transition shadow-md ${
-              state.isAudioMuted
-                ? 'bg-rose-600 hover:bg-rose-500 text-white'
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-            }`}
             title={state.isAudioMuted ? 'Unmute' : 'Mute'}
-          >
-            {state.isAudioMuted ? <MicOff className="w-4 h-4 md:w-5 md:h-5" /> : <Mic className="w-4 h-4 md:w-5 md:h-5" />}
-            <span className="text-[10px] mt-0.5 font-medium">{state.isAudioMuted ? 'Unmute' : 'Mute'}</span>
-          </button>
+            className="rounded-r-none"
+          />
           <button
             onClick={() => {
               setIsAudioMenuOpen((prev) => !prev);
@@ -228,7 +258,7 @@ export const RoomControls: React.FC<{
               setIsSecurityMenuOpen(false);
               setIsReactionsMenuOpen(false);
             }}
-            className="h-14 px-1 rounded-r-2xl bg-slate-800/90 hover:bg-slate-700 border-l border-slate-700 text-slate-400 hover:text-white transition flex items-center"
+            className="h-14 px-1 rounded-r-control rounded-l-none bg-chalk/[0.04] hover:bg-chalk/[0.08] border border-line border-l-0 text-chalk/50 hover:text-chalk transition flex items-center"
             title="Audio Options"
           >
             <ChevronUp className="w-3 h-3" />
@@ -236,19 +266,19 @@ export const RoomControls: React.FC<{
 
           {/* Audio Quick Menu */}
           {isAudioMenuOpen && (
-            <div className="absolute bottom-16 left-0 w-56 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-bottom-2">
-              <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-2 py-1">
-                Audio Settings
+            <div className="absolute bottom-16 left-0 w-56 bg-glass border border-line rounded-panel shadow-float p-1.5 z-50 animate-rise">
+              <div className="text-[10px] font-medium text-muted uppercase tracking-[0.12em] px-2.5 py-1.5">
+                Audio
               </div>
               <button
                 onClick={() => {
                   setIsAudioMenuOpen(false);
                   onOpenSettings('audio');
                 }}
-                className="w-full text-left px-3 py-2 rounded-xl text-xs text-slate-200 hover:bg-slate-800 flex items-center space-x-2 transition"
+                className="w-full text-left px-2.5 py-2 rounded-control text-xs text-chalk/80 hover:bg-chalk/[0.06] hover:text-chalk flex items-center space-x-2 transition"
               >
-                <Settings className="w-3.5 h-3.5 text-blue-400" />
-                <span>Audio Settings...</span>
+                <Settings className="w-3.5 h-3.5 text-muted" />
+                <span>Audio settings…</span>
               </button>
             </div>
           )}
@@ -256,18 +286,14 @@ export const RoomControls: React.FC<{
 
         {/* Camera with Caret */}
         <div className="relative flex items-center">
-          <button
+          <ControlButton
+            icon={state.isVideoMuted ? <VideoOff className="w-4 h-4 md:w-5 md:h-5" /> : <Video className="w-4 h-4 md:w-5 md:h-5" />}
+            label={state.isVideoMuted ? 'Start' : 'Stop'}
+            urgent={state.isVideoMuted}
             onClick={() => manager.toggleVideo()}
-            className={`flex flex-col items-center justify-center w-12 md:w-14 h-14 rounded-l-2xl transition shadow-md ${
-              state.isVideoMuted
-                ? 'bg-rose-600 hover:bg-rose-500 text-white'
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-            }`}
             title={state.isVideoMuted ? 'Start Video' : 'Stop Video'}
-          >
-            {state.isVideoMuted ? <VideoOff className="w-4 h-4 md:w-5 md:h-5" /> : <Video className="w-4 h-4 md:w-5 md:h-5" />}
-            <span className="text-[10px] mt-0.5 font-medium">{state.isVideoMuted ? 'Start' : 'Stop'}</span>
-          </button>
+            className="rounded-r-none"
+          />
           <button
             onClick={() => {
               setIsVideoMenuOpen((prev) => !prev);
@@ -275,7 +301,7 @@ export const RoomControls: React.FC<{
               setIsSecurityMenuOpen(false);
               setIsReactionsMenuOpen(false);
             }}
-            className="h-14 px-1 rounded-r-2xl bg-slate-800/90 hover:bg-slate-700 border-l border-slate-700 text-slate-400 hover:text-white transition flex items-center"
+            className="h-14 px-1 rounded-r-control rounded-l-none bg-chalk/[0.04] hover:bg-chalk/[0.08] border border-line border-l-0 text-chalk/50 hover:text-chalk transition flex items-center"
             title="Video Options"
           >
             <ChevronUp className="w-3 h-3" />
@@ -283,34 +309,34 @@ export const RoomControls: React.FC<{
 
           {/* Video Quick Menu */}
           {isVideoMenuOpen && (
-            <div className="absolute bottom-16 left-0 w-56 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-bottom-2">
-              <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-2 py-1">
-                Video Settings
+            <div className="absolute bottom-16 left-0 w-56 bg-glass border border-line rounded-panel shadow-float p-1.5 z-50 animate-rise">
+              <div className="text-[10px] font-medium text-muted uppercase tracking-[0.12em] px-2.5 py-1.5">
+                Video
               </div>
               <button
                 onClick={() => {
                   setIsVideoMenuOpen(false);
                   onOpenSettings('video');
                 }}
-                className="w-full text-left px-3 py-2 rounded-xl text-xs text-slate-200 hover:bg-slate-800 flex items-center space-x-2 transition"
+                className="w-full text-left px-2.5 py-2 rounded-control text-xs text-chalk/80 hover:bg-chalk/[0.06] hover:text-chalk flex items-center space-x-2 transition"
               >
-                <Settings className="w-3.5 h-3.5 text-blue-400" />
-                <span>Video Settings...</span>
+                <Settings className="w-3.5 h-3.5 text-muted" />
+                <span>Video settings…</span>
               </button>
 
-              <div className="pt-1 mt-1 border-t border-slate-800">
+              <div className="mt-1 pt-1 border-t border-line">
                 <button
                   onClick={() => {
                     manager.toggleBackgroundBlur();
                     setIsVideoMenuOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 rounded-xl text-xs text-slate-200 hover:bg-slate-800 flex items-center justify-between transition"
+                  className="w-full text-left px-2.5 py-2 rounded-control text-xs text-chalk/80 hover:bg-chalk/[0.06] hover:text-chalk flex items-center justify-between transition"
                 >
                   <div className="flex items-center space-x-2">
-                    <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Blur Background</span>
+                    <Sparkles className="w-3.5 h-3.5 text-muted" />
+                    <span>Blur background</span>
                   </div>
-                  <span className={`text-[10px] font-semibold ${state.isBackgroundBlurEnabled ? 'text-blue-400' : 'text-slate-500'}`}>
+                  <span className={`text-[10px] font-medium tracking-wide ${state.isBackgroundBlurEnabled ? 'text-signal' : 'text-muted/70'}`}>
                     {state.isBackgroundBlurEnabled ? 'ON' : 'OFF'}
                   </span>
                 </button>
@@ -322,53 +348,48 @@ export const RoomControls: React.FC<{
         {/* Security Controls (Host Only) */}
         {isHost && (
           <div className="relative">
-            <button
+            <ControlButton
+              icon={<Shield className="w-4 h-4 md:w-5 md:h-5" />}
+              label="Security"
+              active={state.isLocked}
               onClick={() => {
                 setIsSecurityMenuOpen((prev) => !prev);
                 setIsAudioMenuOpen(false);
                 setIsVideoMenuOpen(false);
                 setIsReactionsMenuOpen(false);
               }}
-              className={`flex flex-col items-center justify-center w-12 md:w-14 h-14 rounded-2xl transition shadow-md ${
-                state.isLocked
-                  ? 'bg-amber-600 hover:bg-amber-500 text-white'
-                  : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-              }`}
               title="Meeting Security"
-            >
-              <Shield className="w-4 h-4 md:w-5 md:h-5" />
-              <span className="text-[10px] mt-0.5 font-medium">Security</span>
-            </button>
+            />
 
             {isSecurityMenuOpen && (
-              <div className="absolute bottom-16 -left-12 w-64 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-bottom-2">
-                <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-3 py-1">
-                  Host Security
+              <div className="absolute bottom-16 -left-12 w-64 bg-glass border border-line rounded-panel shadow-float p-1.5 z-50 animate-rise">
+                <div className="text-[10px] font-medium text-muted uppercase tracking-[0.12em] px-2.5 py-1.5">
+                  Host security
                 </div>
 
                 <button
                   onClick={handleToggleLock}
                   disabled={isLocking}
-                  className="w-full text-left px-3 py-2 rounded-xl text-xs text-slate-200 hover:bg-slate-800 flex items-center justify-between transition"
+                  className="w-full text-left px-2.5 py-2 rounded-control text-xs text-chalk/80 hover:bg-chalk/[0.06] hover:text-chalk flex items-center justify-between transition disabled:opacity-50"
                 >
                   <div className="flex items-center space-x-2">
-                    {state.isLocked ? <Lock className="w-4 h-4 text-amber-400" /> : <Unlock className="w-4 h-4 text-slate-400" />}
-                    <span>Lock Meeting</span>
+                    {state.isLocked ? <Lock className="w-4 h-4 text-signal" /> : <Unlock className="w-4 h-4 text-muted" />}
+                    <span>Lock meeting</span>
                   </div>
-                  <span className={`text-[10px] font-semibold ${state.isLocked ? 'text-amber-400' : 'text-slate-500'}`}>
+                  <span className={`text-[10px] font-medium tracking-wide ${state.isLocked ? 'text-signal' : 'text-muted/70'}`}>
                     {state.isLocked ? 'ON' : 'OFF'}
                   </span>
                 </button>
 
                 <button
                   onClick={handleToggleWaitingRoom}
-                  className="w-full text-left px-3 py-2 rounded-xl text-xs text-slate-200 hover:bg-slate-800 flex items-center justify-between transition"
+                  className="w-full text-left px-2.5 py-2 rounded-control text-xs text-chalk/80 hover:bg-chalk/[0.06] hover:text-chalk flex items-center justify-between transition"
                 >
                   <div className="flex items-center space-x-2">
-                    <ShieldCheck className="w-4 h-4 text-blue-400" />
-                    <span>Waiting Room</span>
+                    <ShieldCheck className="w-4 h-4 text-muted" />
+                    <span>Waiting room</span>
                   </div>
-                  <span className={`text-[10px] font-semibold ${isWaitingRoomActive ? 'text-blue-400' : 'text-slate-500'}`}>
+                  <span className={`text-[10px] font-medium tracking-wide ${isWaitingRoomActive ? 'text-signal' : 'text-muted/70'}`}>
                     {isWaitingRoomActive ? 'ON' : 'OFF'}
                   </span>
                 </button>
@@ -378,43 +399,40 @@ export const RoomControls: React.FC<{
         )}
 
         {/* Participants Button */}
-        <button
+        <ControlButton
+          icon={<Users className="w-4 h-4 md:w-5 md:h-5" />}
+          label="People"
+          active={isParticipantsOpen}
           onClick={onToggleParticipants}
-          className={`flex flex-col items-center justify-center w-12 md:w-14 h-14 rounded-2xl transition shadow-md relative ${
-            isParticipantsOpen
-              ? 'bg-blue-600 hover:bg-blue-500 text-white'
-              : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-          }`}
+          badge={
+            state.waitingParticipants.length > 0 ? (
+              <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-signal animate-soft-pulse" />
+            ) : null
+          }
           title="Participants"
-        >
-          {state.waitingParticipants.length > 0 && (
-            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-          )}
-          <Users className="w-4 h-4 md:w-5 md:h-5" />
-          <span className="text-[10px] mt-0.5 font-medium">People</span>
-        </button>
+        />
 
         {/* In-Meeting Chat Button */}
-        <button
+        <ControlButton
+          icon={<MessageSquare className="w-4 h-4 md:w-5 md:h-5" />}
+          label="Chat"
+          active={isChatOpen}
           onClick={onToggleChat}
-          className={`flex flex-col items-center justify-center w-12 md:w-14 h-14 rounded-2xl transition shadow-md relative ${
-            isChatOpen
-              ? 'bg-blue-600 hover:bg-blue-500 text-white'
-              : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-          }`}
           title="In-Meeting Chat"
-        >
-          {state.unreadChatCount > 0 && !isChatOpen && (
-            <span className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-full bg-blue-500 text-white text-[10px] font-bold shadow-md">
-              {state.unreadChatCount}
-            </span>
-          )}
-          <MessageSquare className="w-4 h-4 md:w-5 md:h-5" />
-          <span className="text-[10px] mt-0.5 font-medium">Chat</span>
-        </button>
+          badge={
+            state.unreadChatCount > 0 && !isChatOpen ? (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-signal text-ink text-[9px] font-semibold flex items-center justify-center">
+                {state.unreadChatCount}
+              </span>
+            ) : null
+          }
+        />
 
         {/* Screen Share Toggle */}
-        <button
+        <ControlButton
+          icon={state.isScreenSharing ? <MonitorOff className="w-4 h-4 md:w-5 md:h-5" /> : <MonitorUp className="w-4 h-4 md:w-5 md:h-5" />}
+          label={state.isScreenSharing ? 'Sharing' : 'Share'}
+          active={state.isScreenSharing}
           onClick={() => {
             if (state.isScreenSharing) {
               manager.stopScreenShare();
@@ -422,83 +440,68 @@ export const RoomControls: React.FC<{
               manager.startScreenShare();
             }
           }}
-          className={`flex flex-col items-center justify-center w-12 md:w-14 h-14 rounded-2xl transition shadow-md ${
-            state.isScreenSharing
-              ? 'bg-blue-600 hover:bg-blue-500 text-white'
-              : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-          }`}
           title={state.isScreenSharing ? 'Stop Sharing' : 'Share Screen'}
-        >
-          {state.isScreenSharing ? <MonitorOff className="w-4 h-4 md:w-5 md:h-5" /> : <MonitorUp className="w-4 h-4 md:w-5 md:h-5" />}
-          <span className="text-[10px] mt-0.5 font-medium">{state.isScreenSharing ? 'Sharing' : 'Share'}</span>
-        </button>
+        />
 
         {/* Local In-Meeting Recording */}
-        <button
+        <ControlButton
+          icon={
+            recordingState.isRecording ? (
+              <Square className="w-4 h-4 md:w-5 md:h-5 fill-current" />
+            ) : (
+              <Circle className="w-4 h-4 md:w-5 md:h-5" />
+            )
+          }
+          label={recordingState.isRecording ? 'Stop' : 'Record'}
+          urgent={recordingState.isRecording}
           onClick={handleToggleRecording}
-          className={`flex flex-col items-center justify-center w-12 md:w-14 h-14 rounded-2xl transition shadow-md ${
-            recordingState.isRecording
-              ? 'bg-rose-600 hover:bg-rose-500 text-white animate-pulse'
-              : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-          }`}
           title={recordingState.isRecording ? 'Stop Recording' : 'Record Meeting to Computer'}
-        >
-          {recordingState.isRecording ? (
-            <Square className="w-4 h-4 md:w-5 md:h-5 fill-current" />
-          ) : (
-            <Circle className="w-4 h-4 md:w-5 md:h-5 text-rose-400 fill-rose-500/30" />
-          )}
-          <span className="text-[10px] mt-0.5 font-medium">
-            {recordingState.isRecording ? 'Stop' : 'Record'}
-          </span>
-        </button>
+        />
 
         {/* Small Group Breakouts */}
-        <button
+        <ControlButton
+          icon={<DoorOpen className="w-4 h-4 md:w-5 md:h-5" />}
+          label="Groups"
+          active={isBreakoutRoomsOpen || state.isBreakoutOpen}
           onClick={onToggleBreakoutRooms}
-          className={`flex flex-col items-center justify-center w-12 md:w-14 h-14 rounded-2xl transition shadow-md relative ${
-            isBreakoutRoomsOpen || state.isBreakoutOpen
-              ? 'bg-blue-600 hover:bg-blue-500 text-white'
-              : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-          }`}
           title="Small Group Discussions"
-        >
-          {state.isBreakoutOpen && (
-            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-          )}
-          <DoorOpen className="w-4 h-4 md:w-5 md:h-5" />
-          <span className="text-[10px] mt-0.5 font-medium">Groups</span>
-        </button>
+          badge={
+            state.isBreakoutOpen ? (
+              <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-signal animate-soft-pulse" />
+            ) : null
+          }
+        />
 
         {/* Reactions / Raise Hand Popover */}
         <div className="relative">
-          <button
+          <ControlButton
+            icon={
+              state.isHandRaised ? (
+                <Hand className="w-4 h-4 md:w-5 md:h-5" />
+              ) : (
+                <Smile className="w-4 h-4 md:w-5 md:h-5" />
+              )
+            }
+            label={state.isHandRaised ? 'Hand' : 'React'}
+            active={state.isHandRaised}
             onClick={() => {
               setIsReactionsMenuOpen((prev) => !prev);
               setIsAudioMenuOpen(false);
               setIsVideoMenuOpen(false);
               setIsSecurityMenuOpen(false);
             }}
-            className={`flex flex-col items-center justify-center w-12 md:w-14 h-14 rounded-2xl transition shadow-md ${
-              state.isHandRaised
-                ? 'bg-amber-600 hover:bg-amber-500 text-white'
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-            }`}
             title="Reactions"
-          >
-            {state.isHandRaised ? <Hand className="w-4 h-4 md:w-5 md:h-5 text-yellow-300" /> : <Smile className="w-4 h-4 md:w-5 md:h-5" />}
-            <span className="text-[10px] mt-0.5 font-medium">{state.isHandRaised ? 'Hand' : 'React'}</span>
-          </button>
+          />
 
           {isReactionsMenuOpen && (
-            <div className="absolute bottom-16 -left-16 w-56 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-3 z-50 animate-in fade-in slide-in-from-bottom-2 space-y-2">
+            <div className="absolute bottom-16 -left-16 w-56 bg-glass border border-line rounded-panel shadow-float p-3 z-50 animate-rise space-y-2">
               {/* Quick Emojis Grid */}
               <div className="flex items-center justify-between px-1">
                 {REACTION_EMOJIS.map((emoji) => (
                   <button
                     key={emoji}
                     onClick={() => handleSelectReaction(emoji)}
-                    className="text-xl p-1 rounded-lg hover:bg-slate-800 hover:scale-125 transition-transform"
+                    className="text-lg p-1 rounded-control hover:bg-chalk/[0.08] transition-colors"
                   >
                     {emoji}
                   </button>
@@ -508,46 +511,38 @@ export const RoomControls: React.FC<{
               {/* Raise Hand Button */}
               <button
                 onClick={handleToggleRaiseHand}
-                className={`w-full py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center space-x-2 transition ${
+                className={`w-full py-2 px-3 rounded-control text-xs font-medium flex items-center justify-center space-x-2 transition border ${
                   state.isHandRaised
-                    ? 'bg-amber-600 hover:bg-amber-500 text-white'
-                    : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+                    ? 'bg-signal/15 border-signal/40 text-signal hover:bg-signal/25'
+                    : 'bg-chalk/[0.04] border-line text-chalk/80 hover:bg-chalk/[0.08] hover:text-chalk'
                 }`}
               >
                 <Hand className="w-3.5 h-3.5" />
-                <span>{state.isHandRaised ? 'Lower Hand' : 'Raise Hand'}</span>
+                <span>{state.isHandRaised ? 'Lower hand' : 'Raise hand'}</span>
               </button>
             </div>
           )}
         </div>
 
         {/* Whiteboard Toggle */}
-        <button
+        <ControlButton
+          icon={<Edit3 className="w-4 h-4 md:w-5 md:h-5" />}
+          label="Board"
+          active={isWhiteboardOpen}
           onClick={onToggleWhiteboard}
-          className={`hidden sm:flex flex-col items-center justify-center w-12 md:w-14 h-14 rounded-2xl transition shadow-md ${
-            isWhiteboardOpen
-              ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
-              : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-          }`}
           title="Whiteboard"
-        >
-          <Edit3 className="w-4 h-4 md:w-5 md:h-5" />
-          <span className="text-[10px] mt-0.5 font-medium">Board</span>
-        </button>
+          className="hidden sm:flex"
+        />
 
         {/* Share Files Toggle */}
-        <button
+        <ControlButton
+          icon={<Share2 className="w-4 h-4 md:w-5 md:h-5" />}
+          label="Files"
+          active={isFileShareOpen}
           onClick={onToggleFileShare}
-          className={`hidden sm:flex flex-col items-center justify-center w-12 md:w-14 h-14 rounded-2xl transition shadow-md ${
-            isFileShareOpen
-              ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-              : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-          }`}
           title="Share Files"
-        >
-          <Share2 className="w-4 h-4 md:w-5 md:h-5" />
-          <span className="text-[10px] mt-0.5 font-medium">Files</span>
-        </button>
+          className="hidden sm:flex"
+        />
       </div>
 
       {/* Right: Leave / End Meeting Button */}
@@ -556,26 +551,26 @@ export const RoomControls: React.FC<{
           <div>
             <button
               onClick={() => setIsLeaveMenuOpen((prev) => !prev)}
-              className="px-4 md:px-5 py-3 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-semibold flex items-center space-x-2 transition shadow-lg shadow-rose-900/30"
+              className="px-4 md:px-5 py-3 rounded-control bg-pulse/15 hover:bg-pulse/25 border border-pulse/40 text-pulse font-medium flex items-center space-x-2 transition-colors"
               title="End / Leave Meeting"
             >
               <PhoneOff className="w-4 h-4" />
-              <span className="text-xs font-semibold">End</span>
+              <span className="text-xs font-medium">End</span>
             </button>
 
             {isLeaveMenuOpen && (
-              <div className="absolute bottom-16 right-0 w-48 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-bottom-2 space-y-1">
+              <div className="absolute bottom-16 right-0 w-48 bg-glass border border-line rounded-panel shadow-float p-1.5 z-50 animate-rise space-y-0.5">
                 <button
                   onClick={handleLeaveMeeting}
-                  className="w-full text-left px-3 py-2 rounded-xl text-xs font-medium text-rose-400 hover:bg-rose-950/40 transition"
+                  className="w-full text-left px-2.5 py-2 rounded-control text-xs font-medium text-pulse hover:bg-pulse/10 transition"
                 >
-                  End Meeting for All
+                  End meeting for all
                 </button>
                 <button
                   onClick={handleLeaveMeeting}
-                  className="w-full text-left px-3 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 transition"
+                  className="w-full text-left px-2.5 py-2 rounded-control text-xs font-medium text-chalk/80 hover:bg-chalk/[0.06] hover:text-chalk transition"
                 >
-                  Leave Meeting
+                  Leave meeting
                 </button>
               </div>
             )}
@@ -583,11 +578,11 @@ export const RoomControls: React.FC<{
         ) : (
           <button
             onClick={handleLeaveMeeting}
-            className="px-4 md:px-5 py-3 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-semibold flex items-center space-x-2 transition shadow-lg shadow-rose-900/30"
+            className="px-4 md:px-5 py-3 rounded-control bg-pulse/15 hover:bg-pulse/25 border border-pulse/40 text-pulse font-medium flex items-center space-x-2 transition-colors"
             title="Leave Meeting"
           >
             <PhoneOff className="w-4 h-4" />
-            <span className="text-xs font-semibold">Leave</span>
+            <span className="text-xs font-medium">Leave</span>
           </button>
         )}
       </div>

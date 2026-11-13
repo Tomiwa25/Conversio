@@ -73,20 +73,20 @@ const VideoTile: React.FC<{
 
   const signalColor =
     networkQuality === 'excellent'
-      ? 'text-emerald-400'
+      ? 'text-signal'
       : networkQuality === 'fair'
-      ? 'text-amber-400'
-      : 'text-rose-400';
+      ? 'text-chalk/50'
+      : 'text-pulse';
 
   return (
     <div
       onClick={onClick}
-      className={`relative bg-slate-900 border rounded-2xl overflow-hidden shadow-lg flex items-center justify-center aspect-video group transition-all duration-300 ${
+      className={`relative bg-black border rounded-panel overflow-hidden flex items-center justify-center aspect-video group transition-all duration-300 ${
         isActiveSpeaker && !isMuted
-          ? 'ring-2 ring-blue-500 border-blue-400 shadow-blue-500/40 shadow-xl'
+          ? 'border-signal/50 shadow-[0_0_0_1px_rgb(var(--c-signal)/0.35),0_0_32px_-8px_rgb(var(--c-signal)/0.4)]'
           : isPinned
-          ? 'border-blue-500 shadow-blue-500/20 shadow-xl'
-          : 'border-slate-800'
+          ? 'border-chalk/25'
+          : 'border-line'
       }`}
     >
       {/* Video Element */}
@@ -100,31 +100,35 @@ const VideoTile: React.FC<{
         />
       )}
 
-      {/* Video Off Fallback Avatar */}
+      {/* Video Off Fallback Avatar.
+          The stage is dark in both themes, so this is pinned to literal ink
+          rather than bg-glass (which is white under light mode). */}
       {isVideoOff && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-800/95 text-slate-400">
-          <div className="w-16 h-16 rounded-full bg-slate-700 flex items-center justify-center text-xl font-bold text-white shadow">
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0b0d11]">
+          <div className="w-14 h-14 rounded-panel bg-white/[0.06] border border-white/10 flex items-center justify-center text-lg font-medium text-white/70">
             {name.charAt(0).toUpperCase()}
           </div>
-          <p className="mt-2 text-xs font-medium text-slate-400">{name}</p>
+          <p className="mt-2.5 text-[11px] tracking-wide text-white/45">{name}</p>
         </div>
       )}
 
       {/* Floating Reactions Overlay */}
       <FloatingReactionOverlay reactions={reactions} />
 
+      {/* Tile overlays sit on video, so they stay dark in both themes —
+          pinned colours, not theme tokens. */}
       {/* Top Left: Active Speaker & Hand Raised Badges */}
-      <div className="absolute top-2.5 left-2.5 flex items-center space-x-2">
+      <div className="absolute top-2.5 left-2.5 flex items-center space-x-1.5">
         {isActiveSpeaker && !isMuted && (
-          <div className="flex items-center space-x-1.5 bg-blue-600/90 text-white px-2 py-0.5 rounded-md text-[11px] font-semibold tracking-wide shadow-md animate-pulse">
-            <div className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+          <div className="flex items-center space-x-1.5 bg-signal text-black px-2 py-0.5 rounded-control text-[10px] font-semibold tracking-[0.08em] uppercase">
+            <span className="w-1 h-1 rounded-full bg-black animate-soft-pulse" />
             <span>Speaking</span>
           </div>
         )}
         {isHandRaised && (
-          <div className="flex items-center space-x-1.5 bg-amber-500/90 text-slate-950 px-2 py-0.5 rounded-md text-[11px] font-bold shadow-md animate-pulse">
-            <Hand className="w-3.5 h-3.5" />
-            <span>Raised Hand</span>
+          <div className="flex items-center space-x-1.5 bg-black/80 text-white px-2 py-0.5 rounded-control text-[10px] font-semibold tracking-[0.08em] uppercase border border-white/12 backdrop-blur-md">
+            <Hand className="w-3 h-3" />
+            <span>Hand raised</span>
           </div>
         )}
       </div>
@@ -133,23 +137,23 @@ const VideoTile: React.FC<{
       <div className="absolute top-2.5 right-2.5 flex items-center space-x-1.5">
         {/* Network Quality Indicator */}
         <div
-          className={`p-1 rounded-md bg-slate-950/70 backdrop-blur-sm ${signalColor}`}
+          className={`p-1 rounded-control bg-black/70 backdrop-blur-md border border-white/12 ${signalColor}`}
           title={`Network Quality: ${networkQuality.charAt(0).toUpperCase() + networkQuality.slice(1)}`}
         >
           <Signal className="w-3.5 h-3.5" />
         </div>
 
         {isMuted && (
-          <div className="p-1 rounded-md bg-rose-600/90 text-white backdrop-blur-sm" title="Muted">
+          <div className="p-1 rounded-control bg-pulse/90 text-black backdrop-blur-md" title="Muted">
             <MicOff className="w-3.5 h-3.5" />
           </div>
         )}
       </div>
 
       {/* Bottom Left: Participant Name Badge */}
-      <div className="absolute bottom-2.5 left-2.5 flex items-center space-x-1.5 bg-slate-950/75 backdrop-blur-md px-2.5 py-1 rounded-lg text-xs font-medium text-white border border-slate-800/80">
-        {isHost && <span title="Meeting Host"><Crown className="w-3 h-3 text-amber-400 shrink-0" /></span>}
-        {isScreen && <span title="Shared Screen"><MonitorUp className="w-3 h-3 text-blue-400 shrink-0" /></span>}
+      <div className="absolute bottom-2.5 left-2.5 flex items-center space-x-1.5 bg-black/75 backdrop-blur-md px-2.5 py-1 rounded-control text-[11px] font-medium text-white border border-white/12">
+        {isHost && <span title="Meeting Host"><Crown className="w-3 h-3 text-signal shrink-0" /></span>}
+        {isScreen && <span title="Shared Screen"><MonitorUp className="w-3 h-3 text-white/60 shrink-0" /></span>}
         <span className="truncate max-w-[130px]">
           {name} {isLocal ? '(You)' : ''}
         </span>
@@ -200,29 +204,30 @@ export const VideoGrid: React.FC = () => {
     <div className="flex-1 p-4 flex flex-col items-center justify-center overflow-hidden relative">
       {/* Breakout Room Indicator Pill */}
       {state.currentBreakoutRoomId && currentBreakout && (
-        <div className="absolute top-4 left-4 z-20 flex items-center space-x-2.5 bg-slate-900/90 border border-blue-500/40 text-blue-200 px-3.5 py-1.5 rounded-xl backdrop-blur-md text-xs font-medium shadow-lg">
-          <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-          <span>Small Group: <strong>{currentBreakout.name}</strong></span>
+        <div className="absolute top-4 left-4 z-20 flex items-center space-x-2.5 bg-glass border border-line text-chalk px-3.5 py-1.5 rounded-panel backdrop-blur-xl text-xs shadow-float">
+          <div className="w-1.5 h-1.5 rounded-full bg-signal animate-soft-pulse" />
+          <span className="text-muted">Small group</span>
+          <strong className="font-medium text-chalk">{currentBreakout.name}</strong>
           <button
             onClick={() => manager.joinBreakoutRoom(null)}
-            className="ml-2 px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium transition text-xs shadow"
+            className="ml-2 px-2.5 py-1 rounded-control bg-chalk/[0.06] hover:bg-chalk/10 border border-line text-chalk font-medium transition text-[11px]"
           >
-            Return to Main Room
+            Return to main room
           </button>
         </div>
       )}
 
       {/* Breakout Broadcast Announcement Banner */}
       {state.breakoutAnnouncement && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 max-w-lg bg-amber-500/95 text-slate-950 px-4 py-2.5 rounded-2xl text-xs font-semibold shadow-2xl backdrop-blur-md animate-bounce flex items-center space-x-2 border border-amber-300">
-          <span>📢 {state.breakoutAnnouncement}</span>
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 max-w-lg bg-signal text-ink px-4 py-2.5 rounded-panel text-xs font-medium shadow-float animate-rise flex items-center space-x-2">
+          <span>{state.breakoutAnnouncement}</span>
         </div>
       )}
 
       {/* Breakout Closing Countdown Banner */}
       {state.breakoutClosingCountdown !== null && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 max-w-lg bg-rose-600/95 text-white px-4 py-2.5 rounded-2xl text-xs font-semibold shadow-2xl backdrop-blur-md animate-pulse flex items-center space-x-2 border border-rose-400">
-          <span>⏳ Breakout rooms will close in {state.breakoutClosingCountdown} seconds. Returning to main meeting...</span>
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 max-w-lg bg-pulse text-ink px-4 py-2.5 rounded-panel text-xs font-medium shadow-float animate-rise flex items-center space-x-2">
+          <span>Breakout rooms will close in {state.breakoutClosingCountdown} seconds. Returning to main meeting…</span>
         </div>
       )}
 
@@ -230,18 +235,18 @@ export const VideoGrid: React.FC = () => {
       <div className="absolute top-4 right-4 z-10">
         <button
           onClick={() => setViewMode(viewMode === 'gallery' ? 'speaker' : 'gallery')}
-          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-medium backdrop-blur-md transition shadow"
+          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-control bg-glass hover:bg-chalk/[0.08] text-chalk/80 border border-line text-[11px] font-medium backdrop-blur-xl transition shadow-float"
           title="Toggle Meeting View"
         >
           {viewMode === 'gallery' ? (
             <>
               <Maximize2 className="w-3.5 h-3.5" />
-              <span>Speaker View</span>
+              <span>Speaker view</span>
             </>
           ) : (
             <>
               <Grid className="w-3.5 h-3.5" />
-              <span>Gallery View</span>
+              <span>Gallery view</span>
             </>
           )}
         </button>
