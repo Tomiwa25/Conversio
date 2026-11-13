@@ -2,29 +2,115 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Studio glass — the token layer.
+ *
+ * Dark is the canonical ground ("the instrument panel"); light is the same
+ * system under daylight. Colours are channel triplets so Tailwind's alpha
+ * modifiers work against them (see tailwind.config.ts).
+ */
 :root {
+  /* Light — daylight on a desk */
+  --c-ink: 244 243 240;
+  --c-glass: 255 255 255;
+  --c-chalk: 17 17 16;
+  --c-signal: 96 224 62;
+  --c-pulse: 214 66 54;
+  --c-wave: 42 92 196;
+  --c-line: 17 17 16; /* used at low alpha, see .border-line below */
+  --c-muted: 102 102 98;
+
+  --hairline: 0.1;
+
+  /* Old palette. Kept until the room + remaining modals are migrated. */
   --background: #f8fafc;
   --foreground: #0f172a;
   --surface: #ffffff;
   --surface-border: #e2e8f0;
+
+  color-scheme: light;
 }
 
 .dark {
+  /* Dark — the panel at night */
+  --c-ink: 9 11 15;
+  --c-glass: 18 21 27;
+  --c-chalk: 236 236 230;
+  --c-signal: 196 255 63;
+  --c-pulse: 255 90 74;
+  --c-wave: 92 148 255;
+  --c-line: 236 236 230;
+  --c-muted: 138 140 146;
+
+  --hairline: 0.12;
+
   --background: #090d16;
   --foreground: #f8fafc;
   --surface: #0f172a;
   --surface-border: #1e293b;
+
+  color-scheme: dark;
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  overflow-x: hidden;
-  transition: background-color 0.25s ease, color 0.25s ease;
+@layer base {
+  body {
+    @apply bg-ink text-chalk font-sans antialiased;
+    overflow-x: hidden;
+    transition: background-color 0.25s ease, color 0.25s ease;
+  }
+
+  /*
+   * Hairlines, not strokes. `border-line` alone would compile to a fully opaque
+   * border that wins over `border.border-line` on specificity, so the token
+   * itself is the hairline: compose it with `border`, `border-t`, etc.
+   */
+  .border-line {
+    border-color: rgb(var(--c-line) / var(--hairline));
+  }
+
+  ::selection {
+    background: rgb(var(--c-signal) / 0.9);
+    color: rgb(var(--c-ink));
+  }
+
+  :focus-visible {
+    outline: 1px solid rgb(var(--c-signal));
+    outline-offset: 2px;
+  }
 }
 
-/* Custom scrollbars for smooth modern feel */
+@layer components {
+  /* Primary button: a light sweep across the signal fill on hover. Inherits the
+     control's 2px corners via overflow-hidden on the button itself. */
+  .sweep {
+    position: relative;
+  }
+  .sweep::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.35), transparent);
+    transition: transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    pointer-events: none;
+  }
+  .sweep:hover::after {
+    transform: translateX(100%);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sweep::after {
+      display: none;
+    }
+  }
+
+  /* Waveform bars: 1px corners, no radius, no glow. */
+  .wave-bar {
+    border-radius: 1px;
+    transform-origin: center;
+  }
+}
+
+/* Custom scrollbars, on the token line colour */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -35,11 +121,10 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.3);
+  background: rgb(var(--c-line) / 0.25);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.5);
+  background: rgb(var(--c-line) / 0.4);
 }
-

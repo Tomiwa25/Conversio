@@ -8,6 +8,8 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
+    "build:shared": "npm --workspace=@conversio/shared run build",
+    "predev": "npm run build:shared",
     "dev": "concurrently --names \"SERVER,CLIENT\" -c \"bgBlue.bold,bgGreen.bold\" \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "npm --workspace=@conversio/server run dev",
     "dev:client": "npm --workspace=@conversio/client run dev",
