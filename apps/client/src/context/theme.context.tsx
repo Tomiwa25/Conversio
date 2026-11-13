@@ -16,16 +16,19 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 const STORAGE_KEY = 'conversio_theme';
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setThemeState] = useState<Theme>('system');
+  // Dark is the product's default ground, but an explicit "light" choice (or a
+  // light system preference while on "system") must actually be honoured.
+  const [theme, setThemeState] = useState<Theme>('dark');
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>('dark');
   const [mounted, setMounted] = useState(false);
 
-  // Read saved theme from localStorage on client mount
+  // The inline script in layout.tsx already painted the correct scheme before
+  // hydration; this only syncs React state to the same decision.
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY) as Theme | null;
-    if (saved && (saved === 'light' || saved === 'dark' || saved === 'system')) {
-      setThemeState(saved);
-    }
+    const initial: Theme =
+      saved === 'light' || saved === 'dark' || saved === 'system' ? saved : 'dark';
+    setThemeState(initial);
     setMounted(true);
   }, []);
 
