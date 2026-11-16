@@ -22,7 +22,8 @@ scheduleRouter.use(optionalAuth);
 
 // GET /api/schedule - Retrieve user agenda
 scheduleRouter.get('/', async (req: Request, res: Response) => {
-  const userId = req.user?.userId || (req.query.userId as string);
+  // Bind to verified token user if present
+  const userId = req.user ? req.user.userId : (req.query.userId as string);
   if (!userId) {
     res.status(400).json({ error: 'User ID is required to fetch scheduled meetings' });
     return;

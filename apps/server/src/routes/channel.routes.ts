@@ -65,8 +65,9 @@ channelRouter.post('/:id/messages', async (req: Request, res: Response) => {
     return;
   }
 
-  const senderId = req.user?.userId || (req.body.senderId as string) || 'anonymous-user';
-  const senderName = req.user?.name || (req.body.senderName as string) || 'Anonymous';
+  // When user is authenticated, strictly enforce their verified identity
+  const senderId = req.user ? req.user.userId : ((req.body.senderId as string) || 'anonymous-user');
+  const senderName = req.user ? req.user.name : ((req.body.senderName as string) || 'Anonymous');
 
   const message = await channelService.postChannelMessage({
     channelId,
@@ -81,7 +82,8 @@ channelRouter.post('/:id/messages', async (req: Request, res: Response) => {
 
 // GET /api/channels/direct/:userId - Retrieve DM conversation
 channelRouter.get('/direct/:userId', async (req: Request, res: Response) => {
-  const currentUserId = req.user?.userId || (req.query.currentUserId as string);
+  // If user is authenticated via Bearer token, strictly bind to their verified user ID
+  const currentUserId = req.user ? req.user.userId : (req.query.currentUserId as string);
   const otherUserId = req.params.userId as string;
 
   if (!currentUserId) {
@@ -89,14 +91,16 @@ channelRouter.get('/direct/:userId', async (req: Request, res: Response) => {
     return;
   }
 
-  const messages = await channelService.getDirectMessages(currentUserId, otherUserId);
+  const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
+  const messages = await channelService.getDirectMessages(currentUserId, otherUserId, limit);
   res.status(200).json({ messages });
 });
 
 // POST /api/channels/direct/:userId - Send DM
 channelRouter.post('/direct/:userId', async (req: Request, res: Response) => {
   const recipientId = req.params.userId as string;
-  const senderId = req.user?.userId || (req.body.senderId as string);
+  // If authenticated, strictly bind senderId to verified JWT payload
+  const senderId = req.user ? req.user.userId : (req.body.senderId as string);
 
   if (!senderId) {
     res.status(400).json({ error: 'senderId is required' });

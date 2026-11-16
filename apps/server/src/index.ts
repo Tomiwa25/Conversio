@@ -13,19 +13,42 @@ import { signalingGateway } from './gateways/signaling.gateway.js';
 export const app = express();
 export const server = http.createServer(app);
 
-// Security Headers Middleware
+// 1. Comprehensive Security Headers (Helmet)
 app.use(
   helmet({
-    contentSecurityPolicy: false, // Managed by client frontend
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        connectSrc: ["'self'", 'ws:', 'wss:', 'http:', 'https:'],
+        mediaSrc: ["'self'", 'blob:'],
+        imgSrc: ["'self'", 'data:', 'blob:'],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+      },
+    },
     crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    hsts:
+      process.env.NODE_ENV === 'production'
+        ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+        : false,
   })
 );
 
-// Cross-Origin Resource Sharing
-app.use(cors({ origin: config.corsOrigin }));
-app.use(express.json());
+// 2. Strict Cross-Origin Resource Sharing with Credentials (Cookies)
+app.use(
+  cors({
+    origin: config.corsOrigin === '*' ? true : config.corsOrigin,
+    credentials: true,
+  })
+);
 
-// Rate Limiting Protection (Relaxed in testing environments)
+// 3. Request Body Limiter (Preventing large payload memory exhaustion attacks)
+app.use(express.json({ limit: '250kb' }));
+
+// 4. Rate Limiting Protection (Relaxed during automated unit tests)
 if (process.env.NODE_ENV !== 'test') {
   const authRateLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
@@ -35,11 +58,20 @@ if (process.env.NODE_ENV !== 'test') {
     message: { error: 'Too many authentication attempts. Please try again in 15 minutes.' },
   });
 
+  const roomCreationLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000, // 10 minutes
+    max: 50,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many room requests. Please retry in a few moments.' },
+  });
+
   app.use('/api/auth/login', authRateLimiter);
   app.use('/api/auth/register', authRateLimiter);
+  app.use('/api/rooms', roomCreationLimiter);
 }
 
-// Healthcheck & diagnostic endpoint
+// 5. Healthcheck & Telemetry Diagnostic Endpoint
 app.get('/health', (_req, res) => {
   res.status(200).json({
     status: 'healthy',
@@ -48,13 +80,13 @@ app.get('/health', (_req, res) => {
   });
 });
 
-// REST API routes
+// 6. REST API routes
 app.use('/api/auth', authRouter);
 app.use('/api/rooms', roomRouter);
 app.use('/api/channels', channelRouter);
 app.use('/api/schedule', scheduleRouter);
 
-// Initialize WebRTC Signaling Gateway (Socket.io)
+// 7. Initialize WebRTC Signaling Gateway (Socket.io)
 signalingGateway.initialize(server);
 
 // Start server if executed directly as the entry point

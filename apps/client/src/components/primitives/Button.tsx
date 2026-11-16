@@ -20,13 +20,18 @@ const SIZE = {
   lg: 'h-12 px-5 text-base',
 } as const;
 
-// Signal-lime fill with a horizontal sweep on hover. Ink text, never white.
-// Destructive has no fill until hover so it doesn't shout from the resting state.
+// Sleek studio glass button system.
+// Primary: Signal fill with specular edge, tactile micro-sweep, and ink typography.
+// Secondary: Translucent dark glass with crisp 1px specular line.
 const VARIANT = {
-  primary: 'relative overflow-hidden bg-signal text-ink font-semibold hover:brightness-105 sweep',
-  secondary: 'bg-transparent text-chalk border border-line hover:bg-glass',
-  ghost: 'bg-transparent text-chalk hover:bg-glass',
-  destructive: 'bg-transparent text-pulse border border-pulse/40 hover:bg-pulse/10 hover:border-pulse',
+  primary:
+    'relative overflow-hidden bg-signal text-ink font-semibold shadow-sm hover:shadow-[0_0_20px_rgba(180,255,57,0.25)] hover:brightness-105 active:scale-[0.98] sweep transition-all duration-150',
+  secondary:
+    'bg-glass/80 text-chalk border border-line/80 hover:bg-glass hover:border-line hover:text-chalk active:scale-[0.98] transition-all duration-150 backdrop-blur-sm',
+  ghost:
+    'bg-transparent text-muted hover:text-chalk hover:bg-glass/60 active:scale-[0.98] transition-all duration-150',
+  destructive:
+    'bg-transparent text-pulse border border-pulse/30 hover:bg-pulse/10 hover:border-pulse active:scale-[0.98] transition-all duration-150',
 } as const;
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(

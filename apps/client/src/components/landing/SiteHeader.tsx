@@ -14,50 +14,48 @@ export interface SiteHeaderProps {
 }
 
 const NAV = [
-  { label: 'Product', href: '#product' },
+  { label: 'Capabilities', href: '#capabilities' },
   { label: 'Architecture', href: '#architecture' },
   { label: 'Pricing', href: '#pricing' },
 ];
 
 /**
- * A thin instrument header. Wordmark left, three real nav items, sign-in state
- * right. No fake dropdowns, no announcement banner.
+ * Modern minimalist communication hub header. Floating studio glass with
+ * telemetry status, clean nav items, and tactile actions.
  */
 export const SiteHeader: React.FC<SiteHeaderProps> = ({ onOpenHelp, onOpenPrivacy }) => {
   const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-ink/90 backdrop-blur-sm">
+    <header className="sticky top-0 z-40 border-b border-line/60 bg-ink/80 backdrop-blur-md">
       <div className="max-w-[1440px] mx-auto px-6 lg:px-10 h-14 flex items-center justify-between gap-6">
         <div className="flex items-center gap-8">
           <Wordmark size="md" />
-          <nav className="hidden md:flex items-center gap-6 text-sm" aria-label="Main">
+          <nav className="hidden md:flex items-center gap-1 text-xs" aria-label="Main">
             {NAV.map((item) => (
               <a
                 key={item.href}
                 href={item.href}
-                className="text-muted hover:text-chalk transition-colors relative group"
+                className="px-3 py-1.5 rounded-control text-muted hover:text-chalk hover:bg-glass/60 transition-all duration-150 font-medium"
               >
                 {item.label}
-                <span
-                  className="absolute -bottom-1 left-0 right-0 h-px bg-signal scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-200"
-                  aria-hidden
-                />
               </a>
             ))}
           </nav>
         </div>
 
         <div className="flex items-center gap-3">
-          <LiveDot
-            state="static"
-            tone="signal"
-            size={6}
-            label="systems reachable"
-            className="hidden sm:inline-flex"
-          />
+          <div className="hidden sm:inline-flex items-center gap-2 px-2.5 py-1 rounded-control bg-glass/60 border border-line/60 text-[11px] text-muted">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-signal opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-signal"></span>
+            </span>
+            <span className="font-mono text-[10px] tracking-tight text-chalk">Hub Ready</span>
+          </div>
+
           <ThemeToggle compact />
+
           {user ? (
             <>
               <div className="hidden sm:flex items-center gap-2">
@@ -66,7 +64,7 @@ export const SiteHeader: React.FC<SiteHeaderProps> = ({ onOpenHelp, onOpenPrivac
                     {user.name.charAt(0).toUpperCase()}
                   </span>
                 </span>
-                <span className="text-sm text-chalk truncate max-w-[140px]">{user.name}</span>
+                <span className="text-xs text-chalk font-medium truncate max-w-[130px]">{user.name}</span>
               </div>
               <Button
                 variant="secondary"
@@ -81,16 +79,16 @@ export const SiteHeader: React.FC<SiteHeaderProps> = ({ onOpenHelp, onOpenPrivac
             <>
               <Link
                 href="/signin"
-                className="hidden sm:inline-block text-sm text-muted hover:text-chalk transition-colors px-2 whitespace-nowrap"
+                className="hidden sm:inline-block text-xs font-medium text-muted hover:text-chalk transition-colors px-2 whitespace-nowrap"
               >
                 Sign in
               </Link>
-              <Link
-                href="/signup"
-                className="inline-flex items-center h-8 px-3 rounded-control bg-signal text-ink text-xs font-semibold hover:brightness-105 transition whitespace-nowrap"
+              <a
+                href="#start"
+                className="inline-flex items-center h-8 px-3.5 rounded-control bg-signal text-ink text-xs font-semibold hover:shadow-[0_0_16px_rgba(180,255,57,0.3)] hover:brightness-105 active:scale-[0.98] transition-all whitespace-nowrap"
               >
-                Sign up
-              </Link>
+                Launch Hub
+              </a>
             </>
           )}
           <button
