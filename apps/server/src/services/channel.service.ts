@@ -196,6 +196,7 @@ export class ChannelService {
   }
 
   public async getChannelMessages(channelId: string, limit = 50): Promise<ChannelMessage[]> {
+    const safeLimit = Math.min(Math.max(1, limit), 100);
     if (db.isAvailable()) {
       try {
         const res = await db.getPool()!.query(
@@ -206,7 +207,7 @@ export class ChannelService {
            WHERE m.channel_id::text = $1
            ORDER BY m.created_at ASC
            LIMIT $2`,
-          [channelId, limit]
+          [channelId, safeLimit]
         );
         if (res.rows.length > 0) return res.rows;
       } catch (err: any) {
@@ -215,7 +216,7 @@ export class ChannelService {
     }
 
     const messages = this.channelMessages.get(channelId) || [];
-    return messages.slice(-limit);
+    return messages.slice(-safeLimit);
   }
 
   public async sendDirectMessage(params: {
@@ -254,6 +255,7 @@ export class ChannelService {
   }
 
   public async getDirectMessages(user1: string, user2: string, limit = 50): Promise<DirectMessage[]> {
+    const safeLimit = Math.min(Math.max(1, limit), 100);
     if (db.isAvailable()) {
       try {
         const res = await db.getPool()!.query(
@@ -262,7 +264,7 @@ export class ChannelService {
            WHERE (sender_id = $1 AND recipient_id = $2) OR (sender_id = $2 AND recipient_id = $1)
            ORDER BY created_at ASC
            LIMIT $3`,
-          [user1, user2, limit]
+          [user1, user2, safeLimit]
         );
         if (res.rows.length > 0) return res.rows;
       } catch (err: any) {
@@ -276,7 +278,7 @@ export class ChannelService {
           (m.senderId === user1 && m.recipientId === user2) ||
           (m.senderId === user2 && m.recipientId === user1)
       )
-      .slice(-limit);
+      .slice(-safeLimit);
   }
 }
 

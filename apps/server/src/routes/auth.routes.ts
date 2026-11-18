@@ -48,7 +48,7 @@ const loginSchema = z.object({
 });
 
 const refreshTokenSchema = z.object({
-  refreshToken: z.string().min(1, 'Refresh token is required'),
+  refreshToken: z.string().optional(),
 });
 
 const forgotPasswordSchema = z.object({
@@ -65,7 +65,7 @@ const resetPasswordSchema = z.object({
     .regex(/[0-9]/, 'Password must contain at least one number'),
 });
 
-// POST /api/auth/register - Create New User Account
+// POST /api/auth/register - Create New User Account with Secure Cookie
 authRouter.post(
   '/register',
   asyncHandler(async (req: Request, res: Response) => {
@@ -99,7 +99,7 @@ authRouter.post(
   })
 );
 
-// POST /api/auth/login - User Authentication
+// POST /api/auth/login - User Authentication with Secure Cookie
 authRouter.post(
   '/login',
   asyncHandler(async (req: Request, res: Response) => {

@@ -110,7 +110,6 @@ channelRouter.post(
   asyncHandler(async (req: Request, res: Response) => {
     const recipientId = req.params.userId as string;
     const senderId = req.user?.userId || (req.body.senderId as string);
-    const senderName = req.user?.name || (req.body.senderName as string) || 'Anonymous';
 
     if (!senderId) {
       res.status(400).json({ error: 'senderId is required' });

@@ -7,7 +7,7 @@ import { SiteFooter } from './SiteFooter';
 import { PrivacyModal } from '../PrivacyModal';
 import { HelpModal } from '../HelpModal';
 import { CookieConsent } from '../CookieConsent';
-import { Shield, Zap, Palette, Lock, Users, Activity } from 'lucide-react';
+import { Shield, Zap, Palette } from 'lucide-react';
 
 export const LandingSections: React.FC = () => {
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);

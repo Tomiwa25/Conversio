@@ -22,15 +22,31 @@ app.use(httpLogger);
 // 2. Defense against Host Header & Password Reset Poisoning
 app.use(hostHeaderGuard);
 
-// 3. Security Headers Middleware
+// 3. Comprehensive Security Headers (Helmet)
 app.use(
   helmet({
-    contentSecurityPolicy: false, // Managed by client frontend
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        connectSrc: ["'self'", 'ws:', 'wss:', 'http:', 'https:'],
+        mediaSrc: ["'self'", 'blob:'],
+        imgSrc: ["'self'", 'data:', 'blob:'],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+      },
+    },
     crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    hsts:
+      config.nodeEnv === 'production'
+        ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+        : false,
   })
 );
 
-// 4. Cross-Origin Resource Sharing
+// 4. Strict Cross-Origin Resource Sharing with Credentials
 app.use(
   cors({
     origin: config.corsOrigin === '*' ? true : config.corsOrigin,
@@ -38,10 +54,11 @@ app.use(
   })
 );
 
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+// 5. Request Body Limiter (Preventing large payload memory exhaustion attacks)
+app.use(express.json({ limit: '250kb' }));
+app.use(express.urlencoded({ extended: true, limit: '250kb' }));
 
-// 5. Rate Limiting Protection (Relaxed in testing environments)
+// 6. Rate Limiting Protection (Relaxed during automated unit tests)
 if (process.env.NODE_ENV !== 'test') {
   const authRateLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
@@ -57,11 +74,26 @@ if (process.env.NODE_ENV !== 'test') {
     },
   });
 
+  const roomCreationLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000, // 10 minutes
+    max: 50,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+      success: false,
+      error: {
+        code: 'TOO_MANY_REQUESTS',
+        message: 'Too many room requests. Please retry in a few moments.',
+      },
+    },
+  });
+
   app.use('/api/auth/login', authRateLimiter);
   app.use('/api/auth/register', authRateLimiter);
+  app.use('/api/rooms', roomCreationLimiter);
 }
 
-// 6. Comprehensive Healthcheck & Fault-Tolerance Diagnostic Endpoint
+// 7. Comprehensive Healthcheck & Fault-Tolerance Diagnostic Endpoint
 app.get('/health', async (_req, res) => {
   const dbHealth = await db.checkHealth();
   const memory = process.memoryUsage();
@@ -91,13 +123,13 @@ app.get('/health', async (_req, res) => {
   });
 });
 
-// 7. REST API routes
+// 8. REST API routes
 app.use('/api/auth', authRouter);
 app.use('/api/rooms', roomRouter);
 app.use('/api/channels', channelRouter);
 app.use('/api/schedule', scheduleRouter);
 
-// 8. 404 Handler
+// 9. 404 Handler
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -108,13 +140,13 @@ app.use((req, res) => {
   });
 });
 
-// 9. Centralized Error Handling Middleware
+// 10. Centralized Error Handling Middleware
 app.use(errorHandler);
 
-// 10. Initialize WebRTC Signaling Gateway (Socket.io)
+// 11. Initialize WebRTC Signaling Gateway (Socket.io)
 signalingGateway.initialize(server);
 
-// 11. Graceful Process Termination & Unhandled Rejection Safeguards
+// 12. Graceful Process Termination & Unhandled Rejection Safeguards
 process.on('unhandledRejection', (reason: any) => {
   logger.error('Unhandled Promise Rejection detected:', reason);
 });
@@ -135,7 +167,6 @@ const gracefulShutdown = async (signal: string) => {
     process.exit(0);
   });
 
-  // Force close if graceful shutdown hangs
   setTimeout(() => {
     logger.error('Forced shutdown timeout reached. Terminating process.');
     process.exit(1);

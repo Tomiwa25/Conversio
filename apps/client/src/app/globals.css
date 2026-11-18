@@ -109,6 +109,29 @@
     border-radius: 1px;
     transform-origin: center;
   }
+
+  /* Sleek glass panel with specular top edge highlight */
+  .glass-panel {
+    background: rgb(var(--c-glass) / 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgb(var(--c-line) / var(--hairline));
+    position: relative;
+  }
+
+  /* Ambient radial aura for focal sections */
+  .hero-glow {
+    background: radial-gradient(circle at 50% 0%, rgb(var(--c-signal) / 0.08) 0%, transparent 60%);
+  }
+
+  /* Minimalist interactive focus state */
+  .interactive-border {
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .interactive-border:focus-within {
+    border-color: rgb(var(--c-signal) / 0.5);
+    box-shadow: 0 0 0 1px rgb(var(--c-signal) / 0.3);
+  }
 }
 
 /* Custom scrollbars, on the token line colour */
