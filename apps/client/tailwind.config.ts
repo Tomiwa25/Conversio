@@ -28,6 +28,7 @@ const config: Config = {
         signal: token('signal'),
         pulse: token('pulse'),
         wave: token('wave'),
+        prism: token('prism'),
         muted: token('muted'),
 
         // Dividers, inactive traces, the "off" dot. bg-line resolves to this.

@@ -1,81 +1,311 @@
 'use client';
 
-import React from 'react';
-import { MonoLabel, Waveform } from '../primitives';
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { IDEMPOTENCY_HEADER } from '@conversio/shared';
+import { useAuth } from '../../context/auth.context';
+import { Button, Input, LiveDot, MonoLabel, Waveform } from '../primitives';
+import { ShieldCheck, Video, Lock, ArrowRight, Sparkles, KeyRound } from 'lucide-react';
 
-/** The four properties the product actually implements. Shared by the wide
- * spec column and the mobile spec list, so they can never drift apart. */
+const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:4000';
+
 const SPEC: Array<[string, string]> = [
-  ['Media', 'Peer-to-peer'],
-  ['Files', 'Client-side encrypted'],
-  ['Rooms', 'Passcode protected'],
-  ['Setup', 'None'],
+  ['Protocol', 'Peer-to-Peer WebRTC'],
+  ['Encryption', 'AES-256-GCM Zero-Trust'],
+  ['Access', 'OCC Cryptographic Locks'],
+  ['Requirements', 'Zero Installs · Browser-Native'],
 ];
 
-/**
- * The single memorable element of the landing page.
- *
- * Hero type in Instrument Serif, left-aligned, with a full-width live trace
- * beneath it. The trace is the one place on the site where pure motion is used,
- * and it is anchored to something the product really does.
- */
-export const LandingHero: React.FC = () => (
-  <section className="border-b border-line">
-    <div className="max-w-[1440px] mx-auto px-6 lg:px-10">
-      <div className="grid grid-cols-1 lg:grid-cols-12">
-        <div className="lg:col-span-8 py-16 lg:py-24 lg:pr-12">
-          <h1 className="font-display text-[44px] leading-[0.98] sm:text-3xl sm:leading-[0.98] lg:text-4xl text-chalk tracking-[-0.022em] max-w-[16ch]">
-            Call it a meeting.
-            <br />
-            It works like a room.
-          </h1>
-          <p className="mt-6 text-base text-muted max-w-[52ch] leading-relaxed">
-            Video, whiteboard, files and chat in one place. Start a call in ten seconds, or join with a room code.
-            No installs, no dial-ins, no bots pretending to be people.
-          </p>
+export const LandingHero: React.FC = () => {
+  const router = useRouter();
+  const { user, accessToken } = useAuth();
 
-          <div className="mt-8 flex flex-wrap gap-2">
-            <a
-              href="#start"
-              className="inline-flex items-center h-10 px-4 rounded-control bg-signal text-ink text-sm font-semibold hover:brightness-105 transition"
-            >
-              Start a meeting
-            </a>
-            <a
-              href="#join"
-              className="inline-flex items-center h-10 px-4 rounded-control border border-line text-sm text-chalk hover:bg-glass transition"
-            >
-              Join with a code
-            </a>
+  const [mode, setMode] = useState<'create' | 'join'>('create');
+  const [title, setTitle] = useState('');
+  const [passcode, setPasscode] = useState('');
+  const [guestName, setGuestName] = useState('');
+  const [roomId, setRoomId] = useState('');
+  const [joinPasscode, setJoinPasscode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const displayName = user?.name || guestName.trim() || 'Guest';
+
+  const authHeaders = (): Record<string, string> =>
+    accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+
+  const parseRoomCode = (raw: string): string => {
+    const value = raw.trim();
+    const match = value.match(/\/room\/([^/?#]+)/);
+    return decodeURIComponent(match ? match[1] : value);
+  };
+
+  const handleCreateRoom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    setBusy(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`${serverUrl}/api/rooms`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          [IDEMPOTENCY_HEADER]: crypto.randomUUID(),
+          ...authHeaders(),
+        },
+        body: JSON.stringify({
+          title: title.trim(),
+          hostId: user?.id || `user-${crypto.randomUUID().slice(0, 8)}`,
+          hostName: displayName,
+          passcode: passcode.trim() || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error?.message || data.error || 'Failed to initialize room.');
+        return;
+      }
+
+      router.push(
+        `/room/${data.room.id}?token=${encodeURIComponent(data.token)}&name=${encodeURIComponent(displayName)}&userId=${data.userId || user?.id || ''}&role=host`
+      );
+    } catch {
+      setError('Unable to reach signaling gateway. Please verify your connection.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleJoinRoom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanedCode = parseRoomCode(roomId);
+    if (!cleanedCode) return;
+    setBusy(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`${serverUrl}/api/rooms/${encodeURIComponent(cleanedCode)}/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
+          name: displayName,
+          userId: user?.id,
+          passcode: joinPasscode.trim() || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.code === 'ROOM_LOCKED') {
+          setError('This room has been locked by the host.');
+        } else if (data.code === 'PASSCODE_REQUIRED' || data.code === 'INVALID_PASSCODE') {
+          setError('This room requires a valid meeting passcode.');
+        } else {
+          setError(data.error || 'Unable to join meeting.');
+        }
+        return;
+      }
+
+      router.push(
+        `/room/${data.room.id}?token=${encodeURIComponent(data.token)}&name=${encodeURIComponent(displayName)}&userId=${data.userId}&role=participant`
+      );
+    } catch {
+      setError('Unable to connect to meeting room.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="border-b border-line bg-gradient-to-b from-ink via-ink to-glass/40">
+      <div className="max-w-[1440px] mx-auto px-6 lg:px-10 py-16 lg:py-24">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          {/* Left Column: Focused Problem & Solution */}
+          <div className="lg:col-span-7 space-y-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-signal/30 bg-signal/5 text-signal text-xs font-mono tracking-wide">
+              <LiveDot state="live" tone="signal" size={6} />
+              <span>Zero-Friction · Zero-Trust Collaboration</span>
+            </div>
+
+            <h1 className="font-display text-[46px] sm:text-5xl lg:text-6xl text-chalk leading-[0.98] tracking-[-0.03em] max-w-[16ch]">
+              Meetings without surveillance.
+              <br />
+              <span className="italic text-signal">Rooms without friction.</span>
+            </h1>
+
+            <p className="text-base text-muted max-w-[54ch] leading-relaxed">
+              Conversio eliminates bloated desktop downloads, invasive vendor telemetry, and forced guest logins.
+              Launch ultra-low latency WebRTC video, share end-to-end encrypted files, and brainstorm on collaborative vector whiteboards straight in your browser.
+            </p>
+
+            {/* Spec telemetry tags */}
+            <dl className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-line/60">
+              {SPEC.map(([term, def]) => (
+                <div key={term}>
+                  <dt className="text-muted text-[11px] uppercase tracking-wider font-mono">{term}</dt>
+                  <dd className="text-chalk text-xs font-medium mt-0.5">{def}</dd>
+                </div>
+              ))}
+            </dl>
           </div>
 
-          {/* Below lg the spec column is hidden, so the specs come down here. */}
-          <SpecList className="mt-10 lg:hidden" />
-        </div>
+          {/* Right Column: Instant Action Console */}
+          <div className="lg:col-span-5">
+            <div className="bg-glass border border-line rounded-panel p-6 sm:p-8 shadow-2xl relative">
+              <div className="flex items-center justify-between border-b border-line pb-4 mb-6">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('create');
+                      setError(null);
+                    }}
+                    className={`px-3 py-1.5 rounded-control text-xs font-semibold transition ${
+                      mode === 'create'
+                        ? 'bg-signal text-ink shadow-sm'
+                        : 'text-muted hover:text-chalk hover:bg-chalk/[0.04]'
+                    }`}
+                  >
+                    Start Meeting
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('join');
+                      setError(null);
+                    }}
+                    className={`px-3 py-1.5 rounded-control text-xs font-semibold transition ${
+                      mode === 'join'
+                        ? 'bg-signal text-ink shadow-sm'
+                        : 'text-muted hover:text-chalk hover:bg-chalk/[0.04]'
+                    }`}
+                  >
+                    Join with Code
+                  </button>
+                </div>
 
-        <div className="lg:col-span-4 border-t lg:border-t-0 lg:border-l border-line py-8 lg:py-12 lg:pl-10 flex flex-col justify-between gap-6">
-          <SpecList className="hidden lg:grid" />
+                <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-muted font-mono">
+                  <LiveDot state="static" tone="signal" size={6} />
+                  <span>Mesh Ready</span>
+                </div>
+              </div>
 
-          <div>
-            <Waveform height={48} bars={40} barWidth={2} className="w-full" />
-            <div className="flex items-center justify-between mt-2">
-              <MonoLabel tone="hint">local stream · adaptive</MonoLabel>
-              <MonoLabel tone="hint">live demo</MonoLabel>
+              {error && (
+                <div className="mb-4 p-3 rounded-control bg-pulse/10 border border-pulse/25 text-pulse text-xs leading-relaxed">
+                  {error}
+                </div>
+              )}
+
+              {mode === 'create' ? (
+                <form onSubmit={handleCreateRoom} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-medium text-chalk mb-1.5">Meeting title</label>
+                    <input
+                      type="text"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="e.g. Architecture Review"
+                      required
+                      className="w-full h-10 px-3 rounded-control bg-ink/70 border border-line text-chalk text-sm placeholder:text-muted/40 focus:outline-none focus:border-signal transition"
+                    />
+                  </div>
+
+                  {!user && (
+                    <div>
+                      <label className="block text-xs font-medium text-chalk mb-1.5">Your display name</label>
+                      <input
+                        type="text"
+                        value={guestName}
+                        onChange={(e) => setGuestName(e.target.value)}
+                        placeholder="e.g. Alex Chen"
+                        required
+                        className="w-full h-10 px-3 rounded-control bg-ink/70 border border-line text-chalk text-sm placeholder:text-muted/40 focus:outline-none focus:border-signal transition"
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-medium text-chalk mb-1.5">
+                      Optional Passcode <span className="text-muted font-normal">(Protects room entrance)</span>
+                    </label>
+                    <input
+                      type="password"
+                      value={passcode}
+                      onChange={(e) => setPasscode(e.target.value)}
+                      placeholder="Leave blank for open access"
+                      className="w-full h-10 px-3 rounded-control bg-ink/70 border border-line text-chalk text-sm placeholder:text-muted/40 focus:outline-none focus:border-signal transition"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={busy || !title.trim()}
+                    className="w-full h-11 rounded-control bg-signal text-ink font-semibold text-sm hover:brightness-105 transition disabled:opacity-40 flex items-center justify-center gap-2 shadow-lg"
+                  >
+                    <span>{busy ? 'Initializing room...' : 'Launch Instant Meeting'}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleJoinRoom} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-medium text-chalk mb-1.5">Meeting ID or link</label>
+                    <input
+                      type="text"
+                      value={roomId}
+                      onChange={(e) => setRoomId(e.target.value)}
+                      placeholder="Paste room code or https://.../room/xyz"
+                      required
+                      className="w-full h-10 px-3 rounded-control bg-ink/70 border border-line text-chalk text-sm placeholder:text-muted/40 focus:outline-none focus:border-signal transition font-mono"
+                    />
+                  </div>
+
+                  {!user && (
+                    <div>
+                      <label className="block text-xs font-medium text-chalk mb-1.5">Your display name</label>
+                      <input
+                        type="text"
+                        value={guestName}
+                        onChange={(e) => setGuestName(e.target.value)}
+                        placeholder="e.g. Sarah Connor"
+                        required
+                        className="w-full h-10 px-3 rounded-control bg-ink/70 border border-line text-chalk text-sm placeholder:text-muted/40 focus:outline-none focus:border-signal transition"
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-medium text-chalk mb-1.5">Meeting Passcode</label>
+                    <input
+                      type="password"
+                      value={joinPasscode}
+                      onChange={(e) => setJoinPasscode(e.target.value)}
+                      placeholder="Required if room is protected"
+                      className="w-full h-10 px-3 rounded-control bg-ink/70 border border-line text-chalk text-sm placeholder:text-muted/40 focus:outline-none focus:border-signal transition"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={busy || !roomId.trim()}
+                    className="w-full h-11 rounded-control bg-signal text-ink font-semibold text-sm hover:brightness-105 transition disabled:opacity-40 flex items-center justify-center gap-2 shadow-lg"
+                  >
+                    <span>{busy ? 'Connecting...' : 'Join Meeting'}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </form>
+              )}
+
+              <div className="mt-5 pt-4 border-t border-line/50 flex items-center justify-between text-[11px] text-muted">
+                <span>Zero software downloads required</span>
+                <span className="text-signal font-mono">100% In-Browser</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  </section>
-);
-
-const SpecList: React.FC<{ className?: string }> = ({ className }) => (
-  <dl className={`grid grid-cols-2 gap-x-6 gap-y-4 text-sm ${className}`}>
-    {SPEC.map(([term, def]) => (
-      <div key={term}>
-        <dt className="text-muted text-xs">{term}</dt>
-        <dd className="text-chalk mt-0.5">{def}</dd>
-      </div>
-    ))}
-  </dl>
-);
+    </section>
+  );
+};

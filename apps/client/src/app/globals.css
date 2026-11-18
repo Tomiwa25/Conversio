@@ -10,19 +10,19 @@
  * modifiers work against them (see tailwind.config.ts).
  */
 :root {
-  /* Light — daylight on a desk */
-  --c-ink: 244 243 240;
+  /* Light — precision daylight telemetry */
+  --c-ink: 246 247 249;
   --c-glass: 255 255 255;
-  --c-chalk: 17 17 16;
-  --c-signal: 96 224 62;
-  --c-pulse: 214 66 54;
-  --c-wave: 42 92 196;
-  --c-line: 17 17 16; /* used at low alpha, see .border-line below */
-  --c-muted: 102 102 98;
+  --c-chalk: 15 23 42;
+  --c-signal: 0 176 122;
+  --c-pulse: 220 38 38;
+  --c-wave: 14 116 144;
+  --c-prism: 217 119 6;
+  --c-line: 15 23 42;
+  --c-muted: 100 116 139;
 
   --hairline: 0.1;
 
-  /* Old palette. Kept until the room + remaining modals are migrated. */
   --background: #f8fafc;
   --foreground: #0f172a;
   --surface: #ffffff;
@@ -32,22 +32,23 @@
 }
 
 .dark {
-  /* Dark — the panel at night */
-  --c-ink: 9 11 15;
-  --c-glass: 18 21 27;
-  --c-chalk: 236 236 230;
-  --c-signal: 196 255 63;
-  --c-pulse: 255 90 74;
-  --c-wave: 92 148 255;
-  --c-line: 236 236 230;
-  --c-muted: 138 140 146;
+  /* Dark — deep obsidian void console */
+  --c-ink: 7 9 13;
+  --c-glass: 14 18 26;
+  --c-chalk: 237 237 232;
+  --c-signal: 0 242 169;
+  --c-pulse: 255 77 77;
+  --c-wave: 56 189 248;
+  --c-prism: 255 183 77;
+  --c-line: 237 237 232;
+  --c-muted: 138 144 158;
 
-  --hairline: 0.12;
+  --hairline: 0.1;
 
-  --background: #090d16;
-  --foreground: #f8fafc;
-  --surface: #0f172a;
-  --surface-border: #1e293b;
+  --background: #07090d;
+  --foreground: #ededed;
+  --surface: #0e121a;
+  --surface-border: #1a2233;
 
   color-scheme: dark;
 }
