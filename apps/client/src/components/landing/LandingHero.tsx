@@ -10,10 +10,10 @@ import { ShieldCheck, Video, Lock, ArrowRight, Sparkles, KeyRound } from 'lucide
 const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:4000';
 
 const SPEC: Array<[string, string]> = [
-  ['Protocol', 'Peer-to-Peer WebRTC'],
-  ['Encryption', 'AES-256-GCM Zero-Trust'],
-  ['Access', 'OCC Cryptographic Locks'],
-  ['Requirements', 'Zero Installs · Browser-Native'],
+  ['Setup', '100% In-Browser (No Apps)'],
+  ['Security', 'Private & End-to-End Encrypted'],
+  ['Access', 'Instant Link or Passcode'],
+  ['Features', 'Video, Whiteboard & Files'],
 ];
 
 export const LandingHero: React.FC = () => {
@@ -124,20 +124,19 @@ export const LandingHero: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           {/* Left Column: Focused Problem & Solution */}
           <div className="lg:col-span-7 space-y-6">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-signal/30 bg-signal/5 text-signal text-xs font-mono tracking-wide">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-signal/30 bg-signal/5 text-signal text-xs font-medium tracking-wide">
               <LiveDot state="live" tone="signal" size={6} />
-              <span>Zero-Friction · Zero-Trust Collaboration</span>
+              <span>Fast, Private Online Meetings</span>
             </div>
 
             <h1 className="font-display text-[46px] sm:text-5xl lg:text-6xl text-chalk leading-[0.98] tracking-[-0.03em] max-w-[16ch]">
-              Meetings without surveillance.
+              Simple video calls.
               <br />
-              <span className="italic text-signal">Rooms without friction.</span>
+              <span className="italic text-signal">No downloads required.</span>
             </h1>
 
             <p className="text-base text-muted max-w-[54ch] leading-relaxed">
-              Conversio eliminates bloated desktop downloads, invasive vendor telemetry, and forced guest logins.
-              Launch ultra-low latency WebRTC video, share end-to-end encrypted files, and brainstorm on collaborative vector whiteboards straight in your browser.
+              Meet face-to-face, chat, draw on a live whiteboard, and share files securely right in your browser. No apps to install, no tracking, and no hassle—just create a room and share the link.
             </p>
 
             {/* Spec telemetry tags */}
@@ -186,9 +185,9 @@ export const LandingHero: React.FC = () => {
                   </button>
                 </div>
 
-                <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-muted font-mono">
+                <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-muted font-medium">
                   <LiveDot state="static" tone="signal" size={6} />
-                  <span>Mesh Ready</span>
+                  <span>Ready to Connect</span>
                 </div>
               </div>
 

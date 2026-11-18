@@ -14,9 +14,8 @@ export interface SiteHeaderProps {
 }
 
 const NAV = [
-  { label: 'Capabilities', href: '#capabilities' },
-  { label: 'Architecture', href: '#architecture' },
-  { label: 'Pricing', href: '#pricing' },
+  { label: 'Features', href: '#features' },
+  { label: 'Help', href: '#help' },
 ];
 
 /**
@@ -51,7 +50,7 @@ export const SiteHeader: React.FC<SiteHeaderProps> = ({ onOpenHelp, onOpenPrivac
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-signal opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-signal"></span>
             </span>
-            <span className="font-mono text-[10px] tracking-tight text-chalk">Hub Ready</span>
+            <span className="font-medium text-[11px] tracking-tight text-chalk">Online & Ready</span>
           </div>
 
           <ThemeToggle compact />
@@ -87,7 +86,7 @@ export const SiteHeader: React.FC<SiteHeaderProps> = ({ onOpenHelp, onOpenPrivac
                 href="#start"
                 className="inline-flex items-center h-8 px-3.5 rounded-control bg-signal text-ink text-xs font-semibold hover:shadow-[0_0_16px_rgba(180,255,57,0.3)] hover:brightness-105 active:scale-[0.98] transition-all whitespace-nowrap"
               >
-                Launch Hub
+                Start Meeting
               </a>
             </>
           )}

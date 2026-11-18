@@ -14,9 +14,9 @@ import { ThemeProvider } from '../context/theme.context';
 const THEME_SCRIPT = `(function(){try{var s=localStorage.getItem('conversio_theme');var d=s==='light'?false:s==='dark'?true:(s==='system'?window.matchMedia('(prefers-color-scheme: dark)').matches:true);document.documentElement.classList.toggle('dark',d);}catch(e){}})();`;
 
 export const metadata: Metadata = {
-  title: 'Conversio | Real-Time Zero-Trust Communication Suite',
+  title: 'Conversio | Instant, Private Video Meetings & Whiteboard',
   description:
-    'Enterprise-grade WebRTC video conferencing, persistent team channels, vector whiteboards, and client-side encrypted collaboration.',
+    'Fast, private video calls with real-time whiteboards and secure file sharing straight in your browser. No downloads or sign-ups required.',
 };
 
 export default function RootLayout({

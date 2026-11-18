@@ -22,16 +22,16 @@ export const LandingSections: React.FC = () => {
         {/* 1. Hero Section: Focused squarely on what the app solves */}
         <LandingHero />
 
-        {/* 2. Minimal Solution Architecture: 3 High-Signal Pillars */}
-        <section className="border-b border-line py-16 lg:py-20">
+        {/* 2. Core Features: 3 Clear, User-Friendly Pillars */}
+        <section id="features" className="border-b border-line py-16 lg:py-20">
           <div className="max-w-[1440px] mx-auto px-6 lg:px-10">
             <div className="max-w-2xl mb-12">
-              <span className="text-xs uppercase tracking-wider font-mono text-signal">Core Architecture</span>
+              <span className="text-xs uppercase tracking-wider font-mono text-signal">Simple & Powerful Features</span>
               <h2 className="font-display text-2xl sm:text-3xl text-chalk mt-2 leading-tight">
-                Engineered for speed. Fortified for privacy.
+                Everything you need to meet and work together.
               </h2>
               <p className="text-sm text-muted mt-3 leading-relaxed">
-                Three foundational pillars solve the common pain points of modern meeting software.
+                Three simple reasons Conversio is faster, easier, and more private than traditional meeting apps.
               </p>
             </div>
 
@@ -41,13 +41,13 @@ export const LandingSections: React.FC = () => {
                 <div className="w-10 h-10 rounded-control bg-signal/10 border border-signal/25 text-signal flex items-center justify-center group-hover:scale-105 transition-transform">
                   <Zap className="w-5 h-5" />
                 </div>
-                <h3 className="text-base font-semibold text-chalk">Browser-Native WebRTC</h3>
+                <h3 className="text-base font-semibold text-chalk">Works Right in Your Browser</h3>
                 <p className="text-xs text-muted leading-relaxed">
-                  No sluggish 200MB desktop client installs or forced update restarts. Direct peer-to-peer UDP media routing delivers sub-100ms latency, backed by LiveKit SFU clustering for large team meetings.
+                  No bulky 200MB desktop apps to install and no software updates to wait for. Just click your room link and jump straight into fast, HD video calls with your team.
                 </p>
                 <div className="pt-2 text-[11px] font-mono text-muted flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-signal" />
-                  <span>SRTP Audio/Video Separation</span>
+                  <span>Zero Software Downloads</span>
                 </div>
               </div>
 
@@ -56,13 +56,13 @@ export const LandingSections: React.FC = () => {
                 <div className="w-10 h-10 rounded-control bg-signal/10 border border-signal/25 text-signal flex items-center justify-center group-hover:scale-105 transition-transform">
                   <Shield className="w-5 h-5" />
                 </div>
-                <h3 className="text-base font-semibold text-chalk">Client-Side Zero-Trust</h3>
+                <h3 className="text-base font-semibold text-chalk">Private & Secure Calls</h3>
                 <p className="text-xs text-muted leading-relaxed">
-                  Shared files are encrypted in your browser using AES-256-GCM with keys derived via PBKDF2 (100,000 SHA-256 iterations). The signaling server never holds the keys or inspects your transfers.
+                  Your meetings, chats, and shared files are protected with end-to-end encryption. What you say and share in your room stays strictly between you and your attendees.
                 </p>
                 <div className="pt-2 text-[11px] font-mono text-muted flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-signal" />
-                  <span>SCTP Encrypted DataChannels</span>
+                  <span>End-to-End Encrypted</span>
                 </div>
               </div>
 
@@ -71,13 +71,13 @@ export const LandingSections: React.FC = () => {
                 <div className="w-10 h-10 rounded-control bg-signal/10 border border-signal/25 text-signal flex items-center justify-center group-hover:scale-105 transition-transform">
                   <Palette className="w-5 h-5" />
                 </div>
-                <h3 className="text-base font-semibold text-chalk">Interactive Vector Canvas</h3>
+                <h3 className="text-base font-semibold text-chalk">Interactive Shared Whiteboard</h3>
                 <p className="text-xs text-muted leading-relaxed">
-                  Brainstorm freely on a shared, memory-mindful Fabric.js vector whiteboard. Break out into sub-groups on demand with Optimistic Concurrency Control (OCC) to guard against unauthorized access.
+                  Draw, diagram, and brainstorm together on a live whiteboard while on your call. Everyone can sketch and share ideas at the same time without losing their work.
                 </p>
                 <div className="pt-2 text-[11px] font-mono text-muted flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-signal" />
-                  <span>OCC Lock Versioning</span>
+                  <span>Live Collaborative Drawing</span>
                 </div>
               </div>
             </div>
