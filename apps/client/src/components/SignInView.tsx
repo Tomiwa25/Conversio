@@ -4,20 +4,27 @@ import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../context/auth.context';
+import { Wordmark } from './brand/Wordmark';
+import { ThemeToggle } from './ThemeToggle';
 import { PrivacyModal } from './PrivacyModal';
 import { HelpModal } from './HelpModal';
 import {
-  KeyRound,
   ArrowLeft,
+  ArrowRight,
   Eye,
   EyeOff,
-  ChevronDown,
   Loader2,
   CheckCircle2,
   Sparkles,
-  Video,
   ShieldCheck,
-  Globe,
+  Mail,
+  Lock,
+  User,
+  KeyRound,
+  Twitter,
+  Instagram,
+  Linkedin,
+  MessageCircle,
 } from 'lucide-react';
 
 function SignInContent({ forcedMode }: { forcedMode?: 'signin' | 'signup' }) {
@@ -31,11 +38,9 @@ function SignInContent({ forcedMode }: { forcedMode?: 'signin' | 'signup' }) {
       ? 'signup'
       : 'signin');
 
-  const { login, register, requestPasswordReset, user } = useAuth();
+  const { login, register, requestPasswordReset } = useAuth();
 
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>(initialMode);
-  const [step, setStep] = useState<'identifier' | 'password'>('identifier');
-
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -47,13 +52,9 @@ function SignInContent({ forcedMode }: { forcedMode?: 'signin' | 'signup' }) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [socialNotification, setSocialNotification] = useState<string | null>(null);
 
-  // Modals & Language dropdown
+  // Modals
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
-  const [showLangMenu, setShowLangMenu] = useState(false);
-  const [selectedLang, setSelectedLang] = useState('English');
-
-  const languages = ['English', 'Español', 'Français', 'Deutsch', 'Português', '日本語'];
 
   // Handle Forgot Password Request
   const handleForgotSubmit = async (e: React.FormEvent) => {
@@ -64,32 +65,14 @@ function SignInContent({ forcedMode }: { forcedMode?: 'signin' | 'signup' }) {
       const msg = await requestPasswordReset(forgotEmail);
       setForgotSuccess(msg);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to request password reset');
+      setErrorMessage(err.message || 'Failed to request password reset link.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle Form Submission
-  const handleIdentifierSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage(null);
-
-    if (!identifier.trim()) {
-      setErrorMessage('Please enter your email, Conversio ID or phone number.');
-      return;
-    }
-
-    if (mode === 'signup') {
-      // In signup, we need name and password as well
-      setStep('password');
-    } else {
-      // Move to password step
-      setStep('password');
-    }
-  };
-
-  const handleFinalSubmit = async (e: React.FormEvent) => {
+  // Handle Form Submission (Sign In / Sign Up)
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
     setIsLoading(true);
@@ -99,9 +82,21 @@ function SignInContent({ forcedMode }: { forcedMode?: 'signin' | 'signup' }) {
         if (!name.trim()) {
           throw new Error('Please enter your full name.');
         }
-        await register(name, identifier, password);
+        if (!identifier.trim()) {
+          throw new Error('Please enter a valid email address.');
+        }
+        if (!password || password.length < 6) {
+          throw new Error('Password must be at least 6 characters long.');
+        }
+        await register(name.trim(), identifier.trim(), password);
       } else {
-        await login(identifier, password);
+        if (!identifier.trim()) {
+          throw new Error('Please enter your email or Conversio ID.');
+        }
+        if (!password) {
+          throw new Error('Please enter your password.');
+        }
+        await login(identifier.trim(), password);
       }
       router.push('/');
     } catch (err: any) {
@@ -111,353 +106,328 @@ function SignInContent({ forcedMode }: { forcedMode?: 'signin' | 'signup' }) {
     }
   };
 
-  // Demo 1-Click shortcuts
-  const fillDemoHost = () => {
-    setIdentifier('sarah@conversio.io');
-    setPassword('Password123!');
-    setMode('signin');
-    setStep('password');
-    setErrorMessage(null);
-  };
-
-  const fillDemoParticipant = () => {
-    setIdentifier('alex@conversio.io');
-    setPassword('Password123!');
-    setMode('signin');
-    setStep('password');
-    setErrorMessage(null);
-  };
-
   const handleSocialClick = (provider: string) => {
-    setSocialNotification(`${provider} authentication is ready. Connecting via OAuth 2.0 / SAML...`);
+    setSocialNotification(`${provider} authentication is ready. Connecting via secure OAuth 2.0...`);
     setTimeout(() => {
       setSocialNotification(null);
     }, 3500);
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#0b101b] text-slate-800 dark:text-slate-100 flex flex-col justify-between selection:bg-blue-100 selection:text-blue-900">
-      {/* 1. Top Navigation Bar */}
-      <header className="w-full px-6 py-4 sm:px-10 flex items-center justify-between border-b border-slate-100 dark:border-slate-800/60 bg-white/95 dark:bg-[#0b101b]/95 sticky top-0 z-30 backdrop-blur-sm">
-        {/* Left: Brand Logo */}
-        <Link href="/" className="flex items-center space-x-2 group">
-          <div className="flex items-center">
-            {/* Zoom-style custom logo mark: Conversio */}
-            <span className="text-[26px] sm:text-[30px] font-black tracking-tight text-[#0E71EB] hover:opacity-95 transition-opacity">
-              conversio
-            </span>
-            <div className="w-2.5 h-2.5 rounded-full bg-[#0E71EB] ml-0.5 mt-2 animate-pulse" />
-          </div>
-        </Link>
+    <div className="min-h-screen bg-ink text-chalk flex flex-col justify-between selection:bg-signal selection:text-ink relative overflow-hidden">
+      {/* Background ambient glow matching Landing Page */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[360px] bg-signal/10 blur-[130px] pointer-events-none rounded-full" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(0,176,122,0.08),rgba(255,255,255,0))] pointer-events-none" />
 
-        {/* Right Navigation Items */}
-        <div className="flex items-center space-x-5 sm:space-x-8 text-sm">
-          {mode === 'signin' ? (
-            <div className="text-slate-600 dark:text-slate-300">
-              New to Conversio?{' '}
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('signup');
-                  setStep('identifier');
-                  setErrorMessage(null);
-                }}
-                className="font-medium text-[#0E71EB] hover:underline"
-              >
-                Sign Up
-              </button>
-            </div>
-          ) : (
-            <div className="text-slate-600 dark:text-slate-300">
-              Already have an account?{' '}
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('signin');
-                  setStep('identifier');
-                  setErrorMessage(null);
-                }}
-                className="font-medium text-[#0E71EB] hover:underline"
-              >
-                Sign In
-              </button>
-            </div>
-          )}
+      {/* 1. Top Navigation Bar */}
+      <header className="w-full px-6 py-4 sm:px-10 flex items-center justify-between border-b border-line bg-ink/80 backdrop-blur-md sticky top-0 z-30">
+        <div className="flex items-center gap-4">
+          <Wordmark size="md" />
+        </div>
+
+        {/* Right Navigation Controls */}
+        <div className="flex items-center space-x-4 sm:space-x-6 text-xs">
+          <div className="hidden sm:inline-flex items-center gap-2 px-3 py-1 rounded-full bg-glass/60 border border-line text-muted">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-signal opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-signal"></span>
+            </span>
+            <span className="font-medium text-[11px] text-chalk">Production Ready</span>
+          </div>
 
           <button
             type="button"
             onClick={() => setShowHelpModal(true)}
-            className="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors hidden sm:inline-block"
+            className="text-muted hover:text-chalk transition-colors font-medium hidden sm:inline-block"
           >
-            Support
+            Help & Support
           </button>
 
-          {/* Language Selector Dropdown */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowLangMenu(!showLangMenu)}
-              className="flex items-center space-x-1 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition-colors"
-            >
-              <span>{selectedLang}</span>
-              <ChevronDown className="w-4 h-4 text-slate-400" />
-            </button>
+          <ThemeToggle compact />
 
-            {showLangMenu && (
-              <div className="absolute right-0 mt-2 w-36 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl py-1 z-40 animate-in fade-in zoom-in-95 duration-100">
-                {languages.map((lang) => (
-                  <button
-                    key={lang}
-                    type="button"
-                    onClick={() => {
-                      setSelectedLang(lang);
-                      setShowLangMenu(false);
-                    }}
-                    className={`w-full text-left px-4 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${
-                      selectedLang === lang ? 'font-bold text-[#0E71EB]' : 'text-slate-700 dark:text-slate-300'
-                    }`}
-                  >
-                    {lang}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-line bg-glass/60 text-chalk text-xs font-medium hover:bg-glass hover:border-signal/40 transition"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Home</span>
+          </Link>
         </div>
       </header>
 
+      {/* Subtle Gold / Brass Decorative Line */}
+      <div className="w-full h-px bg-gradient-to-r from-transparent via-[#C5A86C]/40 to-transparent" />
+
       {/* 2. Main Centered Form Container */}
-      <main className="flex-1 flex flex-col items-center justify-center px-4 py-8 sm:py-12 max-w-lg mx-auto w-full">
-        {/* Hero Vector Graphic matching Zoom Sign-in */}
-        <div className="w-full flex justify-center mb-4 sm:mb-6">
-          <div className="relative w-full max-w-[280px] sm:max-w-[320px] h-[160px] sm:h-[180px]">
-            <img
-              src="/conversio-signin-hero.svg"
-              alt="Conversio Collaboration Sign In"
-              className="w-full h-full object-contain filter drop-shadow-sm select-none pointer-events-none"
-            />
+      <main className="flex-1 flex flex-col items-center justify-center px-4 py-10 sm:py-16 max-w-md mx-auto w-full z-10">
+        {/* Main Glass Panel */}
+        <div className="w-full bg-glass/85 backdrop-blur-xl border border-line rounded-3xl p-7 sm:p-9 shadow-[0_20px_50px_rgba(0,0,0,0.35)] relative overflow-hidden transition-all">
+          {/* Top Feature Pill Badge */}
+          <div className="flex justify-center mb-4">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full border border-signal/30 bg-signal/10 text-signal text-xs font-semibold tracking-wide">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Zero Downloads · Private Collaboration</span>
+            </div>
           </div>
-        </div>
 
-        {/* Heading */}
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white text-center mb-6">
-          {mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Sign up free' : 'Reset password'}
-        </h1>
+          {/* Title in Instrument Serif */}
+          <h1 className="font-display text-3xl sm:text-4xl text-chalk text-center leading-[1.1] tracking-[-0.02em] mb-2">
+            {mode === 'signin' && (
+              <>
+                Sign in to <span className="italic text-signal font-normal">Conversio</span>
+              </>
+            )}
+            {mode === 'signup' && (
+              <>
+                Create your <span className="italic text-signal font-normal">account</span>
+              </>
+            )}
+            {mode === 'forgot' && (
+              <>
+                Reset your <span className="italic text-signal font-normal">password</span>
+              </>
+            )}
+          </h1>
 
-        {/* Social Notification Banner */}
-        {socialNotification && (
-          <div className="w-full mb-4 p-3 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-xl text-blue-700 dark:text-blue-300 text-xs flex items-center space-x-2 animate-in fade-in">
-            <Sparkles className="w-4 h-4 flex-shrink-0" />
-            <span>{socialNotification}</span>
-          </div>
-        )}
+          <p className="text-xs sm:text-sm text-muted text-center max-w-[36ch] mx-auto mb-6 leading-relaxed">
+            {mode === 'signin' && 'Enter your credentials to access your meetings, whiteboard canvases, and files.'}
+            {mode === 'signup' && 'Join in seconds for instant browser-based meetings with zero software installs.'}
+            {mode === 'forgot' && 'Enter your account email to receive a secure password recovery link.'}
+          </p>
 
-        {/* Error message */}
-        {errorMessage && (
-          <div className="w-full mb-4 p-3.5 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900/60 rounded-xl text-red-600 dark:text-red-300 text-xs flex items-start space-x-2 animate-in fade-in">
-            <span className="font-bold">•</span>
-            <span>{errorMessage}</span>
-          </div>
-        )}
+          {/* Mode Switcher Tabs (Sign In / Sign Up) - Hidden on Forgot mode */}
+          {mode !== 'forgot' && (
+            <div className="flex p-1 rounded-full bg-ink/70 border border-line mb-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('signin');
+                  setErrorMessage(null);
+                }}
+                className={`flex-1 py-2 text-xs font-medium rounded-full transition-all text-center ${
+                  mode === 'signin'
+                    ? 'bg-signal text-ink font-semibold shadow-sm'
+                    : 'text-muted hover:text-chalk'
+                }`}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('signup');
+                  setErrorMessage(null);
+                }}
+                className={`flex-1 py-2 text-xs font-medium rounded-full transition-all text-center ${
+                  mode === 'signup'
+                    ? 'bg-signal text-ink font-semibold shadow-sm'
+                    : 'text-muted hover:text-chalk'
+                }`}
+              >
+                Create Account
+              </button>
+            </div>
+          )}
 
-        {/* Forgot Password Flow */}
-        {mode === 'forgot' ? (
-          <div className="w-full space-y-4">
-            {forgotSuccess ? (
-              <div className="p-5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs space-y-3">
-                <div className="flex items-center gap-2 font-semibold text-sm">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>Password Reset Dispatched</span>
-                </div>
-                <p className="leading-relaxed">{forgotSuccess}</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMode('signin');
-                    setForgotSuccess(null);
-                  }}
-                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-[#0E71EB] hover:underline"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" /> Return to Sign In
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleForgotSubmit} className="w-full space-y-4">
-                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Enter your account email. If recognized, you will receive a single-use cryptographic recovery link valid for 15 minutes.
-                </p>
-                <div>
-                  <input
-                    type="email"
-                    value={forgotEmail}
-                    onChange={(e) => setForgotEmail(e.target.value)}
-                    placeholder="name@company.com"
-                    required
-                    className="w-full px-4 py-3.5 text-sm sm:text-base bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#0E71EB] focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 transition-all shadow-sm"
-                    autoFocus
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full h-12 bg-[#0E71EB] hover:bg-[#005ce6] text-white font-medium text-base rounded-lg transition-colors shadow-sm flex items-center justify-center space-x-2 disabled:opacity-50"
-                >
-                  {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <span>Send Recovery Link</span>}
-                </button>
-                <div className="text-center pt-2">
+          {/* Social Notification Banner */}
+          {socialNotification && (
+            <div className="w-full mb-4 p-3 bg-signal/10 border border-signal/30 rounded-xl text-signal text-xs flex items-center space-x-2 animate-in fade-in">
+              <Sparkles className="w-4 h-4 flex-shrink-0" />
+              <span>{socialNotification}</span>
+            </div>
+          )}
+
+          {/* Error Message Banner */}
+          {errorMessage && (
+            <div className="w-full mb-4 p-3.5 bg-pulse/10 border border-pulse/30 rounded-xl text-pulse text-xs flex items-start space-x-2 animate-in fade-in">
+              <span className="font-bold">•</span>
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
+          {/* Forgot Password Flow */}
+          {mode === 'forgot' ? (
+            <div className="w-full space-y-4">
+              {forgotSuccess ? (
+                <div className="p-5 rounded-2xl bg-signal/10 border border-signal/30 text-chalk text-xs space-y-3">
+                  <div className="flex items-center gap-2 font-semibold text-sm text-signal">
+                    <CheckCircle2 className="w-4 h-4 text-signal" />
+                    <span>Recovery Link Dispatched</span>
+                  </div>
+                  <p className="leading-relaxed text-muted">{forgotSuccess}</p>
                   <button
                     type="button"
                     onClick={() => {
                       setMode('signin');
-                      setErrorMessage(null);
+                      setForgotSuccess(null);
                     }}
-                    className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition inline-flex items-center gap-1"
+                    className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-signal hover:underline"
                   >
-                    <ArrowLeft className="w-3.5 h-3.5" /> Back to sign in
+                    <ArrowLeft className="w-3.5 h-3.5" /> Return to Sign In
                   </button>
                 </div>
-              </form>
-            )}
-          </div>
-        ) : (
-          <>
-        {/* Step 1: Identifier Input Form */}
-        {step === 'identifier' && (
-          <form onSubmit={handleIdentifierSubmit} className="w-full space-y-4">
-            <div>
-              <input
-                type="text"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="Enter email, Conversio ID or phone number"
-                className="w-full px-4 py-3.5 text-sm sm:text-base bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#0E71EB] focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 transition-all shadow-sm"
-                autoFocus
-              />
+              ) : (
+                <form onSubmit={handleForgotSubmit} className="w-full space-y-4">
+                  <div>
+                    <label className="block text-xs font-medium text-chalk mb-1.5 flex items-center gap-1.5">
+                      <Mail className="w-3.5 h-3.5 text-signal" />
+                      <span>Account Email</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      placeholder="name@company.com"
+                      required
+                      className="w-full h-11 px-3.5 rounded-xl bg-ink/70 border border-line text-chalk text-xs placeholder:text-muted/40 focus:outline-none focus:border-signal transition"
+                      autoFocus
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading || !forgotEmail.trim()}
+                    className="w-full h-12 rounded-full bg-signal text-ink font-semibold text-sm hover:shadow-[0_0_24px_rgba(0,176,122,0.4)] hover:brightness-105 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center space-x-2 shadow-md"
+                  >
+                    {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <span>Send Recovery Link</span>}
+                  </button>
+
+                  <div className="text-center pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode('signin');
+                        setErrorMessage(null);
+                      }}
+                      className="text-xs text-muted hover:text-chalk transition inline-flex items-center gap-1"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" /> Back to sign in
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
+          ) : (
+            /* Sign In & Sign Up Direct Form */
+            <form onSubmit={handleSubmit} className="w-full space-y-4">
+              {/* Full Name for Sign Up */}
+              {mode === 'signup' && (
+                <div>
+                  <label className="block text-xs font-medium text-chalk mb-1.5 flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-signal" />
+                    <span>Full Name</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g. Sarah Connor"
+                    required
+                    className="w-full h-11 px-3.5 rounded-xl bg-ink/70 border border-line text-chalk text-xs placeholder:text-muted/40 focus:outline-none focus:border-signal transition"
+                    autoFocus
+                  />
+                </div>
+              )}
 
-            <button
-              type="submit"
-              className="w-full h-12 bg-[#0E71EB] hover:bg-[#005ce6] active:bg-[#0052cc] text-white font-medium text-base rounded-lg transition-colors shadow-sm flex items-center justify-center space-x-2"
-            >
-              <span>Next</span>
-            </button>
-          </form>
-        )}
-
-        {/* Step 2: Password / Name Input Form */}
-        {step === 'password' && (
-          <form onSubmit={handleFinalSubmit} className="w-full space-y-4 animate-in fade-in duration-150">
-            {/* Show Selected Identifier with edit button */}
-            <div className="flex items-center justify-between px-3 py-2 bg-slate-50 dark:bg-slate-900/60 rounded-lg border border-slate-200 dark:border-slate-800 text-xs">
-              <span className="font-medium text-slate-700 dark:text-slate-300 truncate max-w-[260px]">
-                {identifier}
-              </span>
-              <button
-                type="button"
-                onClick={() => setStep('identifier')}
-                className="text-[#0E71EB] hover:underline flex items-center space-x-1"
-              >
-                <ArrowLeft className="w-3 h-3" />
-                <span>Change</span>
-              </button>
-            </div>
-
-            {mode === 'signup' && (
+              {/* Email / Identifier */}
               <div>
+                <label className="block text-xs font-medium text-chalk mb-1.5 flex items-center gap-1.5">
+                  <Mail className="w-3.5 h-3.5 text-signal" />
+                  <span>{mode === 'signup' ? 'Email Address' : 'Email or Conversio ID'}</span>
+                </label>
                 <input
                   type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Full Name (e.g. Sarah Connor)"
-                  className="w-full px-4 py-3.5 text-sm sm:text-base bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#0E71EB] focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 transition-all shadow-sm"
-                  autoFocus
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder={mode === 'signup' ? 'name@company.com' : 'Enter your email or ID'}
+                  required
+                  className="w-full h-11 px-3.5 rounded-xl bg-ink/70 border border-line text-chalk text-xs placeholder:text-muted/40 focus:outline-none focus:border-signal transition"
+                  autoFocus={mode === 'signin'}
                 />
               </div>
-            )}
 
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
-                className="w-full px-4 py-3.5 pr-11 text-sm sm:text-base bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#0E71EB] focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 transition-all shadow-sm"
-                autoFocus={mode !== 'signup'}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            </div>
+              {/* Password */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-medium text-chalk flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-signal" />
+                    <span>Password</span>
+                  </label>
+                  {mode === 'signin' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode('forgot');
+                        setErrorMessage(null);
+                      }}
+                      className="text-[11px] text-signal hover:underline"
+                    >
+                      Forgot password?
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={mode === 'signup' ? 'At least 6 characters' : 'Enter your password'}
+                    required
+                    className="w-full h-11 px-3.5 pr-10 rounded-xl bg-ink/70 border border-line text-chalk text-xs placeholder:text-muted/40 focus:outline-none focus:border-signal transition"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-chalk transition"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full h-12 bg-[#0E71EB] hover:bg-[#005ce6] active:bg-[#0052cc] text-white font-medium text-base rounded-lg transition-colors shadow-sm flex items-center justify-center space-x-2 disabled:opacity-70"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Signing in...</span>
-                </>
-              ) : (
-                <span>{mode === 'signup' ? 'Create Account' : 'Sign In'}</span>
-              )}
-            </button>
-          </form>
-        )}
+              {/* Submit Button */}
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full h-12 rounded-full bg-signal text-ink font-semibold text-sm hover:shadow-[0_0_24px_rgba(0,176,122,0.4)] hover:brightness-105 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center space-x-2 shadow-md"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>{mode === 'signup' ? 'Creating account...' : 'Signing in...'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>{mode === 'signup' ? 'Create Account' : 'Sign In'}</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
 
-        {/* 3. Divider: "Or sign in with" */}
-        <div className="w-full my-6 flex items-center">
-          <div className="flex-1 border-t border-slate-200 dark:border-slate-800" />
-          <span className="px-4 text-xs text-slate-500 dark:text-slate-400 font-normal">
-            Or {mode === 'signup' ? 'sign up with' : 'sign in with'}
-          </span>
-          <div className="flex-1 border-t border-slate-200 dark:border-slate-800" />
-        </div>
-
-        {/* 4. Social Sign In Buttons (5 round buttons matching Zoom screenshot) */}
-        <div className="w-full flex items-start justify-center space-x-4 sm:space-x-6">
-          {/* SSO */}
-          <div className="flex flex-col items-center space-y-1.5">
-            <button
-              type="button"
-              onClick={() => handleSocialClick('SSO / SAML Enterprise')}
-              className="w-12 h-12 rounded-full border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900 shadow-sm flex items-center justify-center text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group"
-              title="Sign in with Enterprise SSO"
-            >
-              <KeyRound className="w-5 h-5 text-slate-800 dark:text-slate-100 group-hover:scale-110 transition-transform" />
-            </button>
-            <span className="text-[11px] text-slate-600 dark:text-slate-400 font-normal">SSO</span>
+          {/* Divider */}
+          <div className="my-6 flex items-center">
+            <div className="flex-1 border-t border-line" />
+            <span className="px-3 text-[11px] text-muted uppercase tracking-wider font-medium">
+              Or continue with
+            </span>
+            <div className="flex-1 border-t border-line" />
           </div>
 
-          {/* Apple */}
-          <div className="flex flex-col items-center space-y-1.5">
+          {/* Social & SSO Actions */}
+          <div className="grid grid-cols-3 gap-2.5">
+            {/* Google */}
             <button
               type="button"
-              onClick={() => handleSocialClick('Apple')}
-              className="w-12 h-12 rounded-full border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900 shadow-sm flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group"
-              title="Sign in with Apple"
-            >
-              <svg className="w-5 h-5 fill-current text-slate-900 dark:text-white group-hover:scale-110 transition-transform" viewBox="0 0 170 170">
-                <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.69-3.04-7.69-7.85-12.02-14.42-6.11-9.14-10.84-19.66-14.21-31.57-3.37-11.9-5.06-23.08-5.06-33.52 0-14.37 3.58-26.31 10.74-35.81 7.16-9.51 16.3-14.37 27.42-14.6 4.89 0 10.14 1.25 15.75 3.76 5.61 2.5 9.53 3.81 11.75 3.92 1.95 0 6.07-1.42 12.35-4.25 6.28-2.83 11.83-4.14 16.66-3.92 12.82.65 23.08 5.43 30.79 14.34-11.08 6.74-16.52 16.09-16.3 28.04.22 9.57 3.8 17.51 10.74 23.82 6.94 6.31 15.11 9.9 24.51 10.76-2.39 7.18-5.22 14.36-8.51 21.56zM119.22 33.11c0-7.17 2.6-13.8 7.82-19.89 5.21-6.09 11.63-9.89 19.25-11.41.22 1.3.33 2.39.33 3.26 0 7.17-2.71 13.91-8.15 20.22-5.43 6.3-11.95 10-19.56 11.08-.1-.97-.15-2.06-.15-3.26z" />
-              </svg>
-            </button>
-            <span className="text-[11px] text-slate-600 dark:text-slate-400 font-normal">Apple</span>
-          </div>
-
-          {/* Google */}
-          <div className="flex flex-col items-center space-y-1.5">
-            <button
-              type="button"
-              onClick={() => handleSocialClick('Google Workspace')}
-              className="w-12 h-12 rounded-full border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900 shadow-sm flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group"
+              onClick={() => handleSocialClick('Google')}
+              className="h-10 rounded-xl border border-line bg-ink/50 hover:bg-glass hover:border-signal/40 text-chalk text-xs font-medium flex items-center justify-center gap-2 transition group"
               title="Sign in with Google"
             >
-              <svg className="w-5 h-5 group-hover:scale-110 transition-transform" viewBox="0 0 24 24">
+              <svg className="w-4 h-4" viewBox="0 0 24 24">
                 <path
                   fill="#4285F4"
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -475,131 +445,108 @@ function SignInContent({ forcedMode }: { forcedMode?: 'signin' | 'signup' }) {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                 />
               </svg>
+              <span>Google</span>
             </button>
-            <span className="text-[11px] text-slate-600 dark:text-slate-400 font-normal">Google</span>
-          </div>
 
-          {/* Facebook */}
-          <div className="flex flex-col items-center space-y-1.5">
+            {/* Apple */}
             <button
               type="button"
-              onClick={() => handleSocialClick('Facebook')}
-              className="w-12 h-12 rounded-full border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900 shadow-sm flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group"
-              title="Sign in with Facebook"
+              onClick={() => handleSocialClick('Apple')}
+              className="h-10 rounded-xl border border-line bg-ink/50 hover:bg-glass hover:border-signal/40 text-chalk text-xs font-medium flex items-center justify-center gap-2 transition group"
+              title="Sign in with Apple"
             >
-              <svg className="w-5 h-5 fill-[#1877F2] group-hover:scale-110 transition-transform" viewBox="0 0 24 24">
-                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+              <svg className="w-4 h-4 fill-current" viewBox="0 0 170 170">
+                <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.69-3.04-7.69-7.85-12.02-14.42-6.11-9.14-10.84-19.66-14.21-31.57-3.37-11.9-5.06-23.08-5.06-33.52 0-14.37 3.58-26.31 10.74-35.81 7.16-9.51 16.3-14.37 27.42-14.6 4.89 0 10.14 1.25 15.75 3.76 5.61 2.5 9.53 3.81 11.75 3.92 1.95 0 6.07-1.42 12.35-4.25 6.28-2.83 11.83-4.14 16.66-3.92 12.82.65 23.08 5.43 30.79 14.34-11.08 6.74-16.52 16.09-16.3 28.04.22 9.57 3.8 17.51 10.74 23.82 6.94 6.31 15.11 9.9 24.51 10.76-2.39 7.18-5.22 14.36-8.51 21.56zM119.22 33.11c0-7.17 2.6-13.8 7.82-19.89 5.21-6.09 11.63-9.89 19.25-11.41.22 1.3.33 2.39.33 3.26 0 7.17-2.71 13.91-8.15 20.22-5.43 6.3-11.95 10-19.56 11.08-.1-.97-.15-2.06-.15-3.26z" />
               </svg>
+              <span>Apple</span>
             </button>
-            <span className="text-[11px] text-slate-600 dark:text-slate-400 font-normal">Facebook</span>
-          </div>
 
-          {/* Microsoft */}
-          <div className="flex flex-col items-center space-y-1.5">
+            {/* SSO */}
             <button
               type="button"
-              onClick={() => handleSocialClick('Microsoft 365')}
-              className="w-12 h-12 rounded-full border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900 shadow-sm flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group"
-              title="Sign in with Microsoft"
+              onClick={() => handleSocialClick('Enterprise SSO')}
+              className="h-10 rounded-xl border border-line bg-ink/50 hover:bg-glass hover:border-signal/40 text-chalk text-xs font-medium flex items-center justify-center gap-2 transition group"
+              title="Sign in with Enterprise SSO"
             >
-              <div className="grid grid-cols-2 gap-0.5 w-4 h-4 group-hover:scale-110 transition-transform">
-                <span className="w-1.5 h-1.5 bg-[#F25022]" />
-                <span className="w-1.5 h-1.5 bg-[#7FBA00]" />
-                <span className="w-1.5 h-1.5 bg-[#00A4EF]" />
-                <span className="w-1.5 h-1.5 bg-[#FFB900]" />
-              </div>
-            </button>
-            <span className="text-[11px] text-slate-600 dark:text-slate-400 font-normal">Microsoft</span>
-          </div>
-        </div>
-
-        {/* 5. Forgot email/password Link */}
-        <div className="mt-8 text-center">
-          <button
-            type="button"
-            onClick={() => {
-              setMode('forgot');
-              setErrorMessage(null);
-            }}
-            className="text-sm font-medium text-[#0E71EB] hover:underline"
-          >
-            Forgot email or password?
-          </button>
-        </div>
-
-        {/* 6. Quick Demo Logins Pill */}
-        <div className="mt-6 pt-5 border-t border-slate-100 dark:border-slate-800/80 w-full flex flex-col items-center space-y-2">
-          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-            Quick One-Click Test Accounts
-          </span>
-          <div className="flex items-center space-x-2">
-            <button
-              type="button"
-              onClick={fillDemoHost}
-              className="px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 text-xs font-medium hover:bg-blue-100 transition-colors"
-            >
-              Host (Sarah Connor)
-            </button>
-            <button
-              type="button"
-              onClick={fillDemoParticipant}
-              className="px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium hover:bg-slate-200 transition-colors"
-            >
-              Participant (Alex Chen)
+              <KeyRound className="w-4 h-4 text-signal" />
+              <span>SSO</span>
             </button>
           </div>
         </div>
-        </>
-        )}
       </main>
 
-      {/* 3. Footer Section matching Zoom Screenshot */}
-      <footer className="w-full py-6 px-4 text-center border-t border-slate-100 dark:border-slate-800/60 bg-white dark:bg-[#0b101b] space-y-3">
-        {/* Footer Links */}
-        <div className="flex items-center justify-center space-x-6 text-sm text-[#0E71EB]">
-          <button
-            type="button"
-            onClick={() => setShowHelpModal(true)}
-            className="hover:underline text-slate-600 dark:text-slate-400 hover:text-[#0E71EB]"
-          >
-            Help
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowPrivacyModal(true)}
-            className="hover:underline text-slate-600 dark:text-slate-400 hover:text-[#0E71EB]"
-          >
-            Terms
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowPrivacyModal(true)}
-            className="hover:underline text-slate-600 dark:text-slate-400 hover:text-[#0E71EB]"
-          >
-            Privacy
-          </button>
-        </div>
+      {/* 3. Footer Section with Requested Social Links & Policies */}
+      <footer className="w-full border-t border-line bg-ink/90 backdrop-blur-md py-6 px-6 sm:px-10 z-20">
+        <div className="max-w-[1440px] mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          {/* Copyright & Security note */}
+          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-xs text-muted text-center sm:text-left">
+            <span>&copy; {new Date().getFullYear()} Conversio. All rights reserved.</span>
+            <span className="hidden sm:inline text-line">|</span>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowPrivacyModal(true)}
+                className="hover:text-chalk transition"
+              >
+                Privacy Policy
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPrivacyModal(true)}
+                className="hover:text-chalk transition"
+              >
+                Terms
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowHelpModal(true)}
+                className="hover:text-chalk transition"
+              >
+                Help Centre
+              </button>
+            </div>
+          </div>
 
-        {/* Security Subtext */}
-        <p className="text-xs text-slate-400 dark:text-slate-500 max-w-md mx-auto leading-relaxed">
-          Conversio is protected by end-to-end encryption and enterprise access controls.{' '}
-          <button
-            type="button"
-            onClick={() => setShowPrivacyModal(true)}
-            className="text-[#0E71EB] hover:underline"
-          >
-            Privacy Policy
-          </button>{' '}
-          and{' '}
-          <button
-            type="button"
-            onClick={() => setShowPrivacyModal(true)}
-            className="text-[#0E71EB] hover:underline"
-          >
-            Terms of Service
-          </button>{' '}
-          apply.
-        </p>
+          {/* Social Links Requested by User */}
+          <div className="flex flex-wrap items-center justify-center gap-5 text-xs">
+            <a
+              href="https://twitter.com/Tomiwa25"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted hover:text-chalk transition-colors flex items-center gap-1.5"
+            >
+              <Twitter className="w-3.5 h-3.5" />
+              <span>Twitter</span>
+            </a>
+            <a
+              href="https://instagram.com/Tomiwa25"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted hover:text-chalk transition-colors flex items-center gap-1.5"
+            >
+              <Instagram className="w-3.5 h-3.5" />
+              <span>Instagram</span>
+            </a>
+            <a
+              href="https://www.linkedin.com/in/muhydeen-ayandola"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted hover:text-chalk transition-colors flex items-center gap-1.5"
+            >
+              <Linkedin className="w-3.5 h-3.5" />
+              <span>LinkedIn</span>
+            </a>
+            <a
+              href="https://wa.me/2349130831439"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted hover:text-chalk transition-colors flex items-center gap-1.5"
+            >
+              <MessageCircle className="w-3.5 h-3.5 text-signal" />
+              <span>WhatsApp (09130831439)</span>
+            </a>
+          </div>
+        </div>
       </footer>
 
       {/* Modals */}
@@ -613,8 +560,8 @@ export function SignInView({ forcedMode }: { forcedMode?: 'signin' | 'signup' } 
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-white dark:bg-[#0b101b]">
-          <div className="w-8 h-8 border-2 border-[#0E71EB] border-t-transparent rounded-full animate-spin" />
+        <div className="min-h-screen flex items-center justify-center bg-ink">
+          <div className="w-8 h-8 border-2 border-signal border-t-transparent rounded-full animate-spin" />
         </div>
       }
     >
