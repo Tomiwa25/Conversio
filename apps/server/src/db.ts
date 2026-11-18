@@ -1,5 +1,6 @@
 import pg from 'pg';
 import { config } from './config.js';
+import { logger } from './logger.js';
 
 const { Pool } = pg;
 
@@ -22,15 +23,15 @@ export class Database {
           .query('SELECT NOW()')
           .then(() => {
             this.isConnected = true;
-            console.log('[Database] Connected to PostgreSQL successfully.');
+            logger.info('[Database] Connected to PostgreSQL successfully.');
             this.runMigrations();
           })
           .catch((err) => {
-            console.warn('[Database] PostgreSQL connection failed, falling back to in-memory store:', err.message);
+            logger.warn('[Database] PostgreSQL connection failed, falling back to in-memory store:', { error: err.message });
             this.isConnected = false;
           });
       } catch (err) {
-        console.warn('[Database] Failed to initialize PostgreSQL pool:', err);
+        logger.warn('[Database] Failed to initialize PostgreSQL pool:', { error: err });
       }
     }
   }
@@ -41,6 +42,46 @@ export class Database {
 
   public isAvailable(): boolean {
     return this.isConnected && this.pool !== null;
+  }
+
+  /**
+   * Healthcheck probe for DB connectivity & latency measurement
+   */
+  public async checkHealth(): Promise<{ isConnected: boolean; latencyMs: number }> {
+    if (!this.pool || !this.isConnected) {
+      return { isConnected: false, latencyMs: 0 };
+    }
+
+    const start = Date.now();
+    try {
+      await this.pool.query('SELECT 1');
+      return { isConnected: true, latencyMs: Date.now() - start };
+    } catch {
+      return { isConnected: false, latencyMs: Date.now() - start };
+    }
+  }
+
+  /**
+   * Atomic Transaction Execution Wrapper (ensures data consistency & rollback on failure)
+   */
+  public async withTransaction<T>(callback: (client: pg.PoolClient) => Promise<T>): Promise<T> {
+    if (!this.pool) {
+      throw new Error('Database pool not available for transaction.');
+    }
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const result = await callback(client);
+      await client.query('COMMIT');
+      return result;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      logger.error('[Database Transaction] Rolled back transaction due to error:', err);
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   /**
@@ -67,7 +108,6 @@ export class Database {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
 
-      -- Index for active room lookups
       CREATE INDEX IF NOT EXISTS idx_rooms_host_id ON rooms(host_id);
       CREATE INDEX IF NOT EXISTS idx_rooms_is_active ON rooms(is_active);
 
@@ -120,7 +160,24 @@ export class Database {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
 
-      -- 6. Channels Table
+      CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
+      CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash);
+
+      -- 6. Password Reset Tokens Table (Single-use, hashed, 15m expiry)
+      CREATE TABLE IF NOT EXISTS password_reset_tokens (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        token_hash VARCHAR(64) NOT NULL UNIQUE,
+        expires_at TIMESTAMPTZ NOT NULL,
+        used_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ON password_reset_tokens(user_id);
+      CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_hash ON password_reset_tokens(token_hash);
+      CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires ON password_reset_tokens(expires_at);
+
+      -- 7. Channels Table
       CREATE TABLE IF NOT EXISTS channels (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name VARCHAR(255) NOT NULL,
@@ -132,7 +189,7 @@ export class Database {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
 
-      -- 7. Channel Memberships
+      -- 8. Channel Memberships
       CREATE TABLE IF NOT EXISTS channel_members (
         channel_id UUID REFERENCES channels(id) ON DELETE CASCADE,
         user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
@@ -141,7 +198,7 @@ export class Database {
         PRIMARY KEY (channel_id, user_id)
       );
 
-      -- 8. Channel Messages Table
+      -- 9. Channel Messages Table
       CREATE TABLE IF NOT EXISTS channel_messages (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         channel_id UUID REFERENCES channels(id) ON DELETE CASCADE,
@@ -152,7 +209,7 @@ export class Database {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
 
-      -- 9. Direct Messages Table
+      -- 10. Direct Messages Table
       CREATE TABLE IF NOT EXISTS direct_messages (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         sender_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -163,7 +220,7 @@ export class Database {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
 
-      -- 10. Scheduled Meetings Table
+      -- 11. Scheduled Meetings Table
       CREATE TABLE IF NOT EXISTS scheduled_meetings (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         title VARCHAR(255) NOT NULL,
@@ -179,7 +236,7 @@ export class Database {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
 
-      -- 11. Scheduled Meeting Invitees
+      -- 12. Scheduled Meeting Invitees
       CREATE TABLE IF NOT EXISTS scheduled_meeting_invitees (
         meeting_id UUID REFERENCES scheduled_meetings(id) ON DELETE CASCADE,
         user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
@@ -190,9 +247,9 @@ export class Database {
 
     try {
       await this.pool.query(migrationSql);
-      console.log('[Database] PostgreSQL schema migrations verified.');
+      logger.info('[Database] PostgreSQL schema migrations verified.');
     } catch (err) {
-      console.error('[Database] Schema migration error:', err);
+      logger.error('[Database] Schema migration error:', err);
     }
   }
 
@@ -205,4 +262,3 @@ export class Database {
 }
 
 export const db = new Database();
-
