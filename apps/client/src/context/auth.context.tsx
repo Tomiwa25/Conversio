@@ -9,6 +9,8 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
+  requestPasswordReset: (email: string) => Promise<string>;
+  resetPassword: (token: string, newPassword: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -66,7 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to sign in');
+        throw new Error(data.error?.message || data.error || 'Failed to sign in');
       }
 
       setUser(data.user);
@@ -90,7 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to create account');
+        throw new Error(data.error?.message || data.error || 'Failed to create account');
       }
 
       setUser(data.user);
@@ -103,6 +105,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const requestPasswordReset = async (email: string): Promise<string> => {
+    const res = await fetch(`${serverUrl}/api/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error?.message || 'Failed to request password reset');
+    }
+
+    return data.message || 'Instructions have been dispatched to your email.';
+  };
+
+  const resetPassword = async (token: string, newPassword: string): Promise<void> => {
+    const res = await fetch(`${serverUrl}/api/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, newPassword }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error?.message || data.error || 'Failed to reset password');
+    }
+  };
+
   const logout = () => {
     setUser(null);
     setAccessToken(null);
@@ -112,7 +142,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, accessToken, isLoading, login, register, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        accessToken,
+        isLoading,
+        login,
+        register,
+        requestPasswordReset,
+        resetPassword,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -125,4 +166,3 @@ export const useAuth = () => {
   }
   return context;
 };
-

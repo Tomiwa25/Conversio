@@ -31,14 +31,16 @@ function SignInContent({ forcedMode }: { forcedMode?: 'signin' | 'signup' }) {
       ? 'signup'
       : 'signin');
 
-  const { login, register, user } = useAuth();
+  const { login, register, requestPasswordReset, user } = useAuth();
 
-  const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>(initialMode);
   const [step, setStep] = useState<'identifier' | 'password'>('identifier');
 
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSuccess, setForgotSuccess] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
@@ -52,6 +54,21 @@ function SignInContent({ forcedMode }: { forcedMode?: 'signin' | 'signup' }) {
   const [selectedLang, setSelectedLang] = useState('English');
 
   const languages = ['English', 'Español', 'Français', 'Deutsch', 'Português', '日本語'];
+
+  // Handle Forgot Password Request
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setIsLoading(true);
+    try {
+      const msg = await requestPasswordReset(forgotEmail);
+      setForgotSuccess(msg);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to request password reset');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Handle Form Submission
   const handleIdentifierSubmit = (e: React.FormEvent) => {
@@ -224,7 +241,7 @@ function SignInContent({ forcedMode }: { forcedMode?: 'signin' | 'signup' }) {
 
         {/* Heading */}
         <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white text-center mb-6">
-          {mode === 'signin' ? 'Sign in' : 'Sign up free'}
+          {mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Sign up free' : 'Reset password'}
         </h1>
 
         {/* Social Notification Banner */}
@@ -243,6 +260,67 @@ function SignInContent({ forcedMode }: { forcedMode?: 'signin' | 'signup' }) {
           </div>
         )}
 
+        {/* Forgot Password Flow */}
+        {mode === 'forgot' ? (
+          <div className="w-full space-y-4">
+            {forgotSuccess ? (
+              <div className="p-5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs space-y-3">
+                <div className="flex items-center gap-2 font-semibold text-sm">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>Password Reset Dispatched</span>
+                </div>
+                <p className="leading-relaxed">{forgotSuccess}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('signin');
+                    setForgotSuccess(null);
+                  }}
+                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-[#0E71EB] hover:underline"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" /> Return to Sign In
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleForgotSubmit} className="w-full space-y-4">
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Enter your account email. If recognized, you will receive a single-use cryptographic recovery link valid for 15 minutes.
+                </p>
+                <div>
+                  <input
+                    type="email"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    placeholder="name@company.com"
+                    required
+                    className="w-full px-4 py-3.5 text-sm sm:text-base bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#0E71EB] focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 transition-all shadow-sm"
+                    autoFocus
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full h-12 bg-[#0E71EB] hover:bg-[#005ce6] text-white font-medium text-base rounded-lg transition-colors shadow-sm flex items-center justify-center space-x-2 disabled:opacity-50"
+                >
+                  {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <span>Send Recovery Link</span>}
+                </button>
+                <div className="text-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('signin');
+                      setErrorMessage(null);
+                    }}
+                    className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition inline-flex items-center gap-1"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" /> Back to sign in
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        ) : (
+          <>
         {/* Step 1: Identifier Input Form */}
         {step === 'identifier' && (
           <form onSubmit={handleIdentifierSubmit} className="w-full space-y-4">
@@ -440,8 +518,8 @@ function SignInContent({ forcedMode }: { forcedMode?: 'signin' | 'signup' }) {
           <button
             type="button"
             onClick={() => {
-              setSocialNotification('Password recovery instructions sent to your registered address.');
-              setTimeout(() => setSocialNotification(null), 3500);
+              setMode('forgot');
+              setErrorMessage(null);
             }}
             className="text-sm font-medium text-[#0E71EB] hover:underline"
           >
@@ -471,6 +549,8 @@ function SignInContent({ forcedMode }: { forcedMode?: 'signin' | 'signup' }) {
             </button>
           </div>
         </div>
+        </>
+        )}
       </main>
 
       {/* 3. Footer Section matching Zoom Screenshot */}
