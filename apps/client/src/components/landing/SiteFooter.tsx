@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { Twitter, Instagram, Linkedin, MessageCircle } from 'lucide-react';
 import { Wordmark } from '../brand/Wordmark';
 import { MonoLabel } from '../primitives';
 
@@ -103,13 +104,49 @@ export const SiteFooter: React.FC<SiteFooterProps> = ({ onOpenHelp, onOpenPrivac
       </div>
 
       <div className="border-t border-line">
-        <div className="max-w-[1440px] mx-auto px-6 lg:px-10 h-12 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="max-w-[1440px] mx-auto px-6 lg:px-10 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <MonoLabel tone="hint" className="text-[11px]">
             &copy; {new Date().getFullYear()} Conversio
           </MonoLabel>
-          <MonoLabel tone="hint" className="text-[11px]">
-            next.js · socket.io · webrtc · postgres
-          </MonoLabel>
+
+          <div className="flex flex-wrap items-center gap-4 text-xs">
+            <a
+              href="https://twitter.com/Tomiwa25"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted hover:text-chalk transition-colors flex items-center gap-1.5"
+            >
+              <Twitter className="w-3.5 h-3.5" />
+              <span>Twitter</span>
+            </a>
+            <a
+              href="https://instagram.com/Tomiwa25"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted hover:text-chalk transition-colors flex items-center gap-1.5"
+            >
+              <Instagram className="w-3.5 h-3.5" />
+              <span>Instagram</span>
+            </a>
+            <a
+              href="https://www.linkedin.com/in/muhydeen-ayandola"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted hover:text-chalk transition-colors flex items-center gap-1.5"
+            >
+              <Linkedin className="w-3.5 h-3.5" />
+              <span>LinkedIn</span>
+            </a>
+            <a
+              href="https://wa.me/2349130831439"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted hover:text-chalk transition-colors flex items-center gap-1.5"
+            >
+              <MessageCircle className="w-3.5 h-3.5" />
+              <span>WhatsApp (09130831439)</span>
+            </a>
+          </div>
         </div>
       </div>
     </footer>
