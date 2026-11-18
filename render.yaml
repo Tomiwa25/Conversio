@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     region: oregon
-    buildCommand: npm install && npm run build:shared && npm --workspace=@conversio/server run build
+    buildCommand: npm install --include=dev && npm run build:shared && npm --workspace=@conversio/server run build
     startCommand: npm --workspace=@conversio/server run start
     healthCheckPath: /health
     autoDeploy: true
