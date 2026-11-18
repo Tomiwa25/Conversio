@@ -15,7 +15,9 @@ export interface SiteHeaderProps {
 
 const NAV = [
   { label: 'Features', href: '#features' },
-  { label: 'Help', href: '#help' },
+  { label: 'Security', href: '#security' },
+  { label: 'How It Works', href: '#how-it-works' },
+  { label: 'Pricing', href: '#pricing' },
 ];
 
 /**
