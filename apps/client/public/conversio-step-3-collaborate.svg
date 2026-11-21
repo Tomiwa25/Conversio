@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 300" fill="none" class="w-full h-auto">
+  <defs>
+    <linearGradient id="bg-grad-3" x1="0" y1="0" x2="480" y2="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0E121A"/>
+      <stop offset="100%" stop-color="#07090D"/>
+    </linearGradient>
+    <filter id="shadow-3" x="-10%" y="-10%" width="120%" height="130%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#000000" flood-opacity="0.6"/>
+    </filter>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="480" height="300" rx="16" fill="url(#bg-grad-3)"/>
+  <rect width="480" height="300" rx="16" stroke="rgba(237,237,232,0.08)" stroke-width="1"/>
+
+  <!-- Live Meeting Stage Shell -->
+  <g filter="url(#shadow-3)">
+    <rect x="24" y="20" width="432" height="258" rx="12" fill="#0E121A" stroke="rgba(237,237,232,0.12)" stroke-width="1"/>
+
+    <!-- Stage Top Bar -->
+    <rect x="24" y="20" width="432" height="32" rx="12" fill="#07090D" opacity="0.9"/>
+    <circle cx="44" cy="36" r="3.5" fill="#FF4D4D"/>
+    <circle cx="56" cy="36" r="3.5" fill="#FFB74D"/>
+    <circle cx="68" cy="36" r="3.5" fill="#00F2A9"/>
+
+    <text x="86" y="40" fill="#EDEDE8" font-family="system-ui, sans-serif" font-size="10.5" font-weight="600">Weekly Team Catch-up</text>
+    <rect x="364" y="27" width="76" height="18" rx="9" fill="rgba(0,242,169,0.1)" stroke="rgba(0,242,169,0.3)" stroke-width="1"/>
+    <circle cx="374" cy="36" r="2.5" fill="#00F2A9"/>
+    <text x="382" y="39" fill="#00F2A9" font-family="monospace" font-size="8.5" font-weight="700">LIVE · 4 PEOPLE</text>
+
+    <!-- LEFT PANE: 2x2 Video Conference Grid -->
+    <g id="video-grid">
+      <!-- Tile 1 (Speaking) -->
+      <rect x="36" y="60" width="90" height="76" rx="6" fill="#1E293B" stroke="#00F2A9" stroke-width="1.5"/>
+      <circle cx="81" cy="90" r="14" fill="#334155"/>
+      <path d="M68 120c0-7 6-12 13-12s13 5 13 12" fill="#334155"/>
+      <rect x="42" y="118" width="46" height="12" rx="3" fill="#07090D" opacity="0.8"/>
+      <text x="48" y="127" fill="#00F2A9" font-family="system-ui, sans-serif" font-size="7.5" font-weight="700">YOU (TALKING)</text>
+      <!-- Mini audio wave -->
+      <rect x="108" y="122" width="2" height="6" fill="#00F2A9"/>
+      <rect x="112" y="119" width="2" height="10" fill="#00F2A9"/>
+      <rect x="116" y="123" width="2" height="5" fill="#00F2A9"/>
+
+      <!-- Tile 2 -->
+      <rect x="132" y="60" width="90" height="76" rx="6" fill="#1E293B" stroke="rgba(237,237,232,0.08)" stroke-width="1"/>
+      <circle cx="177" cy="90" r="14" fill="#334155"/>
+      <path d="M164 120c0-7 6-12 13-12s13 5 13 12" fill="#334155"/>
+      <rect x="138" y="118" width="34" height="12" rx="3" fill="#07090D" opacity="0.8"/>
+      <text x="142" y="127" fill="#EDEDE8" font-family="system-ui, sans-serif" font-size="7.5" font-weight="500">Sarah</text>
+
+      <!-- Tile 3 -->
+      <rect x="36" y="142" width="90" height="76" rx="6" fill="#1E293B" stroke="rgba(237,237,232,0.08)" stroke-width="1"/>
+      <circle cx="81" cy="172" r="14" fill="#334155"/>
+      <path d="M68 202c0-7 6-12 13-12s13 5 13 12" fill="#334155"/>
+      <rect x="42" y="200" width="34" height="12" rx="3" fill="#07090D" opacity="0.8"/>
+      <text x="46" y="209" fill="#EDEDE8" font-family="system-ui, sans-serif" font-size="7.5" font-weight="500">David</text>
+
+      <!-- Tile 4 -->
+      <rect x="132" y="142" width="90" height="76" rx="6" fill="#1E293B" stroke="rgba(237,237,232,0.08)" stroke-width="1"/>
+      <circle cx="177" cy="172" r="14" fill="#334155"/>
+      <path d="M164 202c0-7 6-12 13-12s13 5 13 12" fill="#334155"/>
+      <rect x="138" y="200" width="34" height="12" rx="3" fill="#07090D" opacity="0.8"/>
+      <text x="142" y="209" fill="#EDEDE8" font-family="system-ui, sans-serif" font-size="7.5" font-weight="500">Elena</text>
+    </g>
+
+    <!-- RIGHT PANE: Shared Whiteboard Drawing Board -->
+    <g id="whiteboard-canvas">
+      <rect x="230" y="60" width="214" height="158" rx="8" fill="#07090D" stroke="rgba(0,242,169,0.25)" stroke-width="1"/>
+
+      <!-- Canvas Toolbar -->
+      <rect x="230" y="60" width="214" height="24" rx="8" fill="#0E121A"/>
+      <text x="240" y="75" fill="#00F2A9" font-family="system-ui, sans-serif" font-size="9" font-weight="700">SHARED DRAWING BOARD</text>
+      <!-- Tool color dots -->
+      <circle cx="396" cy="72" r="4" fill="#00F2A9"/>
+      <circle cx="408" cy="72" r="4" fill="#38BDF8"/>
+      <circle cx="420" cy="72" r="4" fill="#F59E0B"/>
+      <circle cx="432" cy="72" r="4" fill="#EF4444"/>
+
+      <!-- Drawn Ideas -->
+      <rect x="246" y="96" width="68" height="42" rx="4" fill="rgba(56,189,248,0.12)" stroke="#38BDF8" stroke-width="1.8"/>
+      <text x="260" y="120" fill="#38BDF8" font-family="system-ui, sans-serif" font-size="9" font-weight="600">STEP 1</text>
+
+      <!-- Connection arrow -->
+      <path d="M314 117h36m-6-4l6 4-6 4" stroke="#00F2A9" stroke-width="1.8" stroke-linecap="round"/>
+
+      <!-- Ellipse shape -->
+      <ellipse cx="388" cy="117" rx="30" ry="22" fill="rgba(0,242,169,0.12)" stroke="#00F2A9" stroke-width="1.8"/>
+      <text x="368" y="120" fill="#00F2A9" font-family="system-ui, sans-serif" font-size="9" font-weight="600">LAUNCH</text>
+
+      <!-- Freehand pencil sketch -->
+      <path d="M250 165c20-15 45 25 70 5s40 10 65-5" stroke="#F59E0B" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+
+      <!-- Live Pointer 1 (Sarah) -->
+      <g transform="translate(320, 102)">
+        <path d="M0 0l4 10 2.5-3.5 4.5 1-1.5-3.5 3.5-.5L0 0z" fill="#38BDF8"/>
+        <rect x="10" y="8" width="34" height="12" rx="2" fill="#38BDF8"/>
+        <text x="13" y="17" fill="#07090D" font-family="system-ui, sans-serif" font-size="7" font-weight="700">Sarah</text>
+      </g>
+
+      <!-- Live Pointer 2 (Muhydeen) -->
+      <g transform="translate(380, 150)">
+        <path d="M0 0l4 10 2.5-3.5 4.5 1-1.5-3.5 3.5-.5L0 0z" fill="#00F2A9"/>
+        <rect x="10" y="8" width="46" height="12" rx="2" fill="#00F2A9"/>
+        <text x="13" y="17" fill="#07090D" font-family="system-ui, sans-serif" font-size="7" font-weight="700">Muhydeen</text>
+      </g>
+    </g>
+
+    <!-- Bottom Control Console & Safe File Capsule -->
+    <g id="bottom-bar">
+      <rect x="24" y="228" width="432" height="50" rx="12" fill="#07090D"/>
+      <path d="M24 228h432" stroke="rgba(237,237,232,0.08)" stroke-width="1"/>
+
+      <!-- Mic / Cam Buttons -->
+      <circle cx="56" cy="252" r="14" fill="#1E293B"/>
+      <path d="M56 244v8m-4-4a4 4 0 008 0m-4 8v3m-4 0h8" stroke="#00F2A9" stroke-width="1.5" stroke-linecap="round"/>
+
+      <circle cx="90" cy="252" r="14" fill="#1E293B"/>
+      <path d="M84 246h8a2 2 0 012 2v8a2 2 0 01-2 2h-8a2 2 0 01-2-2v-8a2 2 0 012-2zm12 3l4-3v12l-4-3" stroke="#00F2A9" stroke-width="1.5" stroke-linecap="round"/>
+
+      <!-- Safe File Sharing Pill Capsule -->
+      <rect x="120" y="238" width="248" height="28" rx="6" fill="#0E121A" stroke="rgba(0,242,169,0.3)" stroke-width="1"/>
+      <circle cx="134" cy="252" r="3" fill="#00F2A9"/>
+      <text x="144" y="255" fill="#EDEDE8" font-family="system-ui, sans-serif" font-size="9" font-weight="600">team-notes.pdf</text>
+      <rect x="220" y="243" width="76" height="18" rx="3" fill="rgba(0,242,169,0.15)"/>
+      <text x="226" y="255" fill="#00F2A9" font-family="system-ui, sans-serif" font-size="8" font-weight="700">SHARED SAFELY</text>
+      <text x="304" y="255" fill="#8A909E" font-family="system-ui, sans-serif" font-size="8.5">Direct Transfer</text>
+
+      <!-- Leave Button -->
+      <rect x="382" y="238" width="60" height="28" rx="6" fill="rgba(255,77,77,0.15)" stroke="rgba(255,77,77,0.4)" stroke-width="1"/>
+      <text x="396" y="255" fill="#FF4D4D" font-family="system-ui, sans-serif" font-size="9.5" font-weight="700">LEAVE</text>
+    </g>
+  </g>
+</svg>

@@ -43,7 +43,7 @@ roomRouter.post(
     if (!parseResult.success) {
       res.status(400).json({
         error: 'Validation failed',
-        details: parseResult.error.flatten(),
+        details: z.flattenError(parseResult.error),
       });
       return;
     }
@@ -98,7 +98,7 @@ roomRouter.post(
     if (!parseResult.success) {
       res.status(400).json({
         error: 'Validation failed',
-        details: parseResult.error.flatten(),
+        details: z.flattenError(parseResult.error),
       });
       return;
     }
@@ -179,7 +179,7 @@ roomRouter.post(
     if (!parseResult.success) {
       res.status(400).json({
         error: 'Validation failed',
-        details: parseResult.error.flatten(),
+        details: z.flattenError(parseResult.error),
       });
       return;
     }
@@ -229,7 +229,7 @@ roomRouter.post(
     if (!parseResult.success) {
       res.status(400).json({
         error: 'Validation failed',
-        details: parseResult.error.flatten(),
+        details: z.flattenError(parseResult.error),
       });
       return;
     }

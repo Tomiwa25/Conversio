@@ -23,7 +23,7 @@ const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
   console.error('[Config Error] Invalid server environment configuration:');
-  console.error(parsed.error.format());
+  console.error(z.treeifyError(parsed.error));
   if (process.env.NODE_ENV === 'production') {
     process.exit(1);
   }

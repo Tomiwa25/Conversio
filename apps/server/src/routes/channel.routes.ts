@@ -36,7 +36,7 @@ channelRouter.post(
   asyncHandler(async (req: Request, res: Response) => {
     const parseResult = createChannelSchema.safeParse(req.body);
     if (!parseResult.success) {
-      res.status(400).json({ error: 'Validation failed', details: parseResult.error.flatten() });
+      res.status(400).json({ error: 'Validation failed', details: z.flattenError(parseResult.error) });
       return;
     }
 
@@ -68,7 +68,7 @@ channelRouter.post(
     const channelId = req.params.id as string;
     const parseResult = postMessageSchema.safeParse(req.body);
     if (!parseResult.success) {
-      res.status(400).json({ error: 'Validation failed', details: parseResult.error.flatten() });
+      res.status(400).json({ error: 'Validation failed', details: z.flattenError(parseResult.error) });
       return;
     }
 
@@ -118,7 +118,7 @@ channelRouter.post(
 
     const parseResult = postMessageSchema.safeParse(req.body);
     if (!parseResult.success) {
-      res.status(400).json({ error: 'Validation failed', details: parseResult.error.flatten() });
+      res.status(400).json({ error: 'Validation failed', details: z.flattenError(parseResult.error) });
       return;
     }
 

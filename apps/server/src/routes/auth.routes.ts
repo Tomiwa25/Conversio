@@ -76,7 +76,7 @@ authRouter.post(
         error: {
           code: 'VALIDATION_FAILED',
           message: 'Registration validation failed',
-          details: parseResult.error.flatten(),
+          details: z.flattenError(parseResult.error),
         },
       });
       return;
@@ -110,7 +110,7 @@ authRouter.post(
         error: {
           code: 'VALIDATION_FAILED',
           message: 'Invalid credentials format',
-          details: parseResult.error.flatten(),
+          details: z.flattenError(parseResult.error),
         },
       });
       return;
@@ -145,7 +145,7 @@ authRouter.post(
         error: {
           code: 'VALIDATION_FAILED',
           message: 'Valid email is required',
-          details: parseResult.error.flatten(),
+          details: z.flattenError(parseResult.error),
         },
       });
       return;
@@ -173,7 +173,7 @@ authRouter.post(
         error: {
           code: 'VALIDATION_FAILED',
           message: 'Password reset validation failed',
-          details: parseResult.error.flatten(),
+          details: z.flattenError(parseResult.error),
         },
       });
       return;

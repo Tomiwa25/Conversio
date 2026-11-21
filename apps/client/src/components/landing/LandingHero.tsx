@@ -200,105 +200,67 @@ export const LandingHero: React.FC = () => {
                   <div className="w-1 h-1 rounded-full bg-signal/80" />
                 </div>
 
-                {/* Inner Video Window */}
-                <div className="rounded-xl overflow-hidden bg-gradient-to-br from-[#0b1329] via-[#0d1b2a] to-[#0a1128] aspect-[16/10] relative flex flex-col justify-between p-3.5 border border-white/10 select-none">
+                {/* Inner Video Window with Real Collaboration Photo & Live UI Overlays */}
+                <div className="rounded-xl overflow-hidden bg-black aspect-[16/10] relative flex flex-col justify-between p-3.5 border border-white/10 select-none group shadow-inner">
+                  {/* The Photorealistic Collaboration Hero Image */}
+                  <img
+                    src="/conversio-collaboration-hero.jpg"
+                    alt="Real people collaborating in an active Conversio video meeting with live whiteboard and chat"
+                    className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-[1.03] transition-transform duration-500"
+                  />
+
+                  {/* Subtle Dark Gradient Overlay for Readability of Telemetry */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/60 pointer-events-none" />
+
                   {/* Top Bar inside Video Call */}
                   <div className="flex items-center justify-between z-10">
-                    <div className="flex items-center gap-2 bg-black/50 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10 text-[11px] text-white/90">
-                      <span className="w-1.5 h-1.5 rounded-full bg-signal animate-ping" />
-                      <span className="font-medium">Design Review</span>
+                    <div className="flex items-center gap-2 bg-black/75 backdrop-blur-md px-3 py-1 rounded-full border border-white/15 text-[11px] text-white">
+                      <span className="w-2 h-2 rounded-full bg-signal animate-pulse" />
+                      <span className="font-semibold">Team Catch-up</span>
                       <span className="text-white/40">·</span>
-                      <span className="text-white/60">4 in room</span>
+                      <span className="text-white/80">4 people in call</span>
                     </div>
 
-                    <div className="bg-black/50 backdrop-blur-md px-2 py-0.5 rounded text-[10px] text-white/70 font-mono border border-white/10">
-                      1080p HD
+                    <div className="flex items-center gap-1.5">
+                      <span className="bg-signal/20 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[10px] text-signal font-mono font-semibold border border-signal/40">
+                        Private &amp; Safe
+                      </span>
+                      <span className="bg-black/75 backdrop-blur-md px-2 py-0.5 rounded text-[10px] text-white/80 font-mono border border-white/15">
+                        HD Quality
+                      </span>
                     </div>
                   </div>
 
-                  {/* Main Call View: Presenter + Video Sidebar */}
-                  <div className="grid grid-cols-12 gap-2.5 h-[65%] my-auto z-10">
-                    {/* Main Presenter Screen */}
-                    <div className="col-span-8 rounded-lg bg-gradient-to-br from-[#162a45] to-[#0c182b] border border-white/10 relative overflow-hidden flex flex-col justify-between p-2.5 shadow-inner">
-                      <div className="flex items-center justify-between">
-                        <span className="px-2 py-0.5 rounded bg-black/60 text-[10px] text-white font-medium backdrop-blur-sm">
-                          Alex Chen (Host)
-                        </span>
-                        <div className="w-5 h-5 rounded-full bg-signal/20 text-signal flex items-center justify-center">
-                          <Mic className="w-3 h-3" />
-                        </div>
-                      </div>
-
-                      {/* Presenter Visual Avatar */}
-                      <div className="my-auto self-center flex flex-col items-center">
-                        <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-signal to-[#38d39f] flex items-center justify-center text-ink font-display text-2xl font-bold shadow-lg">
-                          AC
-                        </div>
-                        <span className="text-[11px] text-white/80 mt-1.5 font-medium">Screen Sharing Active</span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-[10px] text-white/50 font-mono">
-                        <span>Latency 28ms</span>
-                        <span>Encrypted</span>
-                      </div>
+                  {/* Middle Active Badge Callout */}
+                  <div className="z-10 mt-auto mb-2 flex items-center justify-between">
+                    <div className="bg-black/70 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/15 flex items-center gap-2 text-xs text-white">
+                      <span className="w-2 h-2 rounded-full bg-signal animate-ping" />
+                      <span className="font-medium">Video Call &amp; Shared Drawing Board</span>
                     </div>
-
-                    {/* Right Participant Sidebar (3 Tiles) */}
-                    <div className="col-span-4 flex flex-col gap-2 h-full">
-                      <div className="flex-1 rounded-lg bg-white/5 border border-white/10 p-2 flex flex-col justify-between relative overflow-hidden">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] text-white/80 font-medium truncate">Sarah Lin</span>
-                          <span className="w-1.5 h-1.5 rounded-full bg-signal" />
-                        </div>
-                        <div className="self-center w-7 h-7 rounded-full bg-[#2a4365] text-white/90 flex items-center justify-center text-[10px] font-bold">
-                          SL
-                        </div>
-                        <span className="text-[9px] text-white/40">Speaking...</span>
-                      </div>
-
-                      <div className="flex-1 rounded-lg bg-white/5 border border-white/10 p-2 flex flex-col justify-between relative overflow-hidden">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] text-white/80 font-medium truncate">Marcus V.</span>
-                          <span className="w-1.5 h-1.5 rounded-full bg-signal" />
-                        </div>
-                        <div className="self-center w-7 h-7 rounded-full bg-[#2d3748] text-white/90 flex items-center justify-center text-[10px] font-bold">
-                          MV
-                        </div>
-                        <span className="text-[9px] text-white/40">Cam on</span>
-                      </div>
-
-                      <div className="flex-1 rounded-lg bg-white/5 border border-white/10 p-2 flex flex-col justify-between relative overflow-hidden">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] text-white/80 font-medium truncate">Elena R.</span>
-                          <MicOff className="w-2.5 h-2.5 text-white/40" />
-                        </div>
-                        <div className="self-center w-7 h-7 rounded-full bg-[#1a365d] text-white/90 flex items-center justify-center text-[10px] font-bold">
-                          ER
-                        </div>
-                        <span className="text-[9px] text-white/40">Muted</span>
-                      </div>
-                    </div>
+                    <span className="font-mono text-[11px] text-white/80 bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-md border border-white/15">
+                      Smooth &amp; Fast · No Lag
+                    </span>
                   </div>
 
                   {/* Floating Bottom Call Controls Pill */}
-                  <div className="mx-auto bg-black/75 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/15 flex items-center gap-2.5 shadow-2xl z-20">
-                    <button className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-signal flex items-center justify-center transition">
-                      <Mic className="w-3.5 h-3.5" />
+                  <div className="mx-auto bg-black/85 backdrop-blur-md px-4 py-2 rounded-full border border-white/20 flex items-center gap-3 shadow-2xl z-20">
+                    <button className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-signal flex items-center justify-center transition" title="Microphone">
+                      <Mic className="w-4 h-4" />
                     </button>
-                    <button className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-signal flex items-center justify-center transition">
-                      <Video className="w-3.5 h-3.5" />
+                    <button className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-signal flex items-center justify-center transition" title="Camera">
+                      <Video className="w-4 h-4" />
                     </button>
-                    <button className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white/80 flex items-center justify-center transition">
-                      <ScreenShare className="w-3.5 h-3.5" />
+                    <button className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white/80 flex items-center justify-center transition" title="Share Screen">
+                      <ScreenShare className="w-4 h-4" />
                     </button>
-                    <button className="w-7 h-7 rounded-full bg-signal/20 border border-signal/40 text-signal flex items-center justify-center transition">
-                      <Palette className="w-3.5 h-3.5" />
+                    <button className="w-8 h-8 rounded-full bg-signal/20 border border-signal/40 text-signal flex items-center justify-center transition" title="Whiteboard">
+                      <Palette className="w-4 h-4" />
                     </button>
-                    <button className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white/80 flex items-center justify-center transition">
-                      <MessageSquare className="w-3.5 h-3.5" />
+                    <button className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white/80 flex items-center justify-center transition" title="Chat">
+                      <MessageSquare className="w-4 h-4" />
                     </button>
-                    <button className="w-7 h-7 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-md transition">
-                      <PhoneOff className="w-3.5 h-3.5" />
+                    <button className="w-8 h-8 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-md transition" title="Leave">
+                      <PhoneOff className="w-4 h-4" />
                     </button>
                   </div>
                 </div>

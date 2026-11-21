@@ -54,7 +54,7 @@ scheduleRouter.post(
   asyncHandler(async (req: Request, res: Response) => {
     const parseResult = scheduleMeetingSchema.safeParse(req.body);
     if (!parseResult.success) {
-      res.status(400).json({ error: 'Validation failed', details: parseResult.error.flatten() });
+      res.status(400).json({ error: 'Validation failed', details: z.flattenError(parseResult.error) });
       return;
     }
 

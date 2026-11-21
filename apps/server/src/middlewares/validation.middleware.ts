@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import { ZodSchema, ZodError } from 'zod';
+import { z, ZodType } from 'zod';
 
-export function validateBody<T>(schema: ZodSchema<T>) {
+export function validateBody<T>(schema: ZodType<T>) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const result = schema.safeParse(req.body);
     if (!result.success) {
@@ -10,7 +10,7 @@ export function validateBody<T>(schema: ZodSchema<T>) {
         error: {
           code: 'VALIDATION_FAILED',
           message: 'Request payload validation failed',
-          details: result.error.flatten(),
+          details: z.flattenError(result.error),
         },
       });
       return;
@@ -20,7 +20,7 @@ export function validateBody<T>(schema: ZodSchema<T>) {
   };
 }
 
-export function validateQuery<T>(schema: ZodSchema<T>) {
+export function validateQuery<T>(schema: ZodType<T>) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const result = schema.safeParse(req.query);
     if (!result.success) {
@@ -29,7 +29,7 @@ export function validateQuery<T>(schema: ZodSchema<T>) {
         error: {
           code: 'VALIDATION_FAILED',
           message: 'Query parameter validation failed',
-          details: result.error.flatten(),
+          details: z.flattenError(result.error),
         },
       });
       return;
@@ -39,7 +39,7 @@ export function validateQuery<T>(schema: ZodSchema<T>) {
   };
 }
 
-export function validateParams<T>(schema: ZodSchema<T>) {
+export function validateParams<T>(schema: ZodType<T>) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const result = schema.safeParse(req.params);
     if (!result.success) {
@@ -48,7 +48,7 @@ export function validateParams<T>(schema: ZodSchema<T>) {
         error: {
           code: 'VALIDATION_FAILED',
           message: 'URL parameters validation failed',
-          details: result.error.flatten(),
+          details: z.flattenError(result.error),
         },
       });
       return;
