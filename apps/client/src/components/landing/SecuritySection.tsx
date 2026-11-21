@@ -8,37 +8,37 @@ const SECURITY_CARDS = [
     icon: ShieldCheck,
     title: 'End-to-End Encrypted',
     description:
-      'Video and audio streams are encrypted end-to-end between participants. No one outside your room—not even our servers—can listen in.',
-    badge: 'DTLS-SRTP & AES-256',
+      'Video and audio are scrambled between participants. No one outside your room—not even our servers—can listen in.',
+    badge: 'Bank-Grade Protection',
   },
   {
     icon: EyeOff,
     title: 'Zero Tracking & No Recordings',
     description:
-      'We do not record calls, transcribe your speech, or monetize your activity. What you say in your meeting stays in your meeting.',
-    badge: 'Strict No-Logs Policy',
+      'We never record calls, listen to speech, or sell your activity. What you say in your meeting stays strictly between you.',
+    badge: 'Never Recorded',
   },
   {
     icon: Lock,
     title: 'Passcode & Room Lock',
     description:
-      'Guard confidential discussions. Set an entry passcode or lock the room once your team is in to prevent uninvited attendees from dropping in.',
-    badge: 'Host Gatekeeping',
+      'Keep your calls private. Set an optional entry passcode or lock the room once your team arrives so uninvited guests cannot join.',
+    badge: 'You Control Who Enters',
   },
   {
     icon: RefreshCw,
-    title: 'Ephemeral Whiteboard & Files',
+    title: 'Self-Cleaning Sessions',
     description:
-      'Drawings and files stream directly peer-to-peer. When you hang up and close your room, all session data automatically evaporates from memory.',
-    badge: 'Leaves Zero Footprint',
+      'Drawings, chats, and shared files travel directly between attendees. When you hang up and leave, everything safely disappears.',
+    badge: 'Leaves Zero Trace',
   },
 ];
 
 const TRUST_POINTS = [
-  'No third-party marketing cookies or telemetry trackers',
-  'No client-side software installations that expose system vulnerabilities',
-  'Compliance with modern data privacy standards and strict sandbox isolation',
-  'Direct peer-to-peer data channels for private document transfers',
+  'No marketing cookies, advertising scripts, or hidden trackers',
+  'No software downloads or installations that risk your computer',
+  'Complies with strict global data privacy and consumer standards',
+  'Files and drawings transfer directly between attendees with no cloud copies',
 ];
 
 export const SecuritySection: React.FC = () => {
@@ -57,7 +57,7 @@ export const SecuritySection: React.FC = () => {
               <span className="italic text-signal">By design, not by promise.</span>
             </h2>
             <p className="text-base text-muted mt-4 max-w-[50ch] leading-relaxed">
-              Traditional meeting apps store your recordings on their servers and track your team. Conversio is built with a zero-trust architecture where you hold total control.
+              Traditional meeting apps store your recordings on their servers and track your calls. Conversio is built so only you and your guests can see and hear what happens.
             </p>
           </div>
 

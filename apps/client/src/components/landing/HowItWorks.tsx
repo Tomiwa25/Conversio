@@ -9,24 +9,30 @@ const STEPS = [
     icon: Sparkles,
     title: 'Create in One Click',
     description:
-      'Enter a meeting title, add an optional passcode for extra privacy, and click Start. Your room is generated instantly.',
-    tag: 'No Account Required',
+      'Type in a meeting name, set a password if you want it private, and tap Start. Your meeting room is ready right away.',
+    tag: 'No Account Needed',
+    image: '/conversio-step-1-create.svg',
+    imageAlt: 'Step 1: Type a meeting name, pick an optional password, and start your call',
   },
   {
     step: '02',
     icon: LinkIcon,
-    title: 'Share One Simple Link',
+    title: 'Share Your Link',
     description:
-      'Copy your room link or share a quick room code. Anyone can join immediately in their browser on laptop, tablet, or phone.',
+      'Send your link to teammates, clients, or friends. Anyone can join in seconds right on their phone, tablet, or laptop.',
     tag: 'Works on Any Device',
+    image: '/conversio-step-2-share.svg',
+    imageAlt: 'Step 2: Share your meeting link with anyone on phone, tablet, or computer',
   },
   {
     step: '03',
     icon: Users,
-    title: 'Collaborate in Real Time',
+    title: 'Talk, Draw, and Share',
     description:
-      'Meet with HD video and clear audio, sketch ideas together on the live whiteboard, chat, and send files with total privacy.',
-    tag: 'All-in-One Workspace',
+      'Talk face-to-face with clear audio, sketch ideas together on a live drawing board, send chat messages, and drop files safely.',
+    tag: 'All-in-One Space',
+    image: '/conversio-step-3-collaborate.svg',
+    imageAlt: 'Step 3: See everyone on video, draw together on a shared board, and share files safely',
   },
 ];
 
@@ -55,26 +61,47 @@ export const HowItWorks: React.FC = () => {
             return (
               <div
                 key={s.step}
-                className="bg-glass border border-line rounded-2xl p-8 relative flex flex-col justify-between hover:border-signal/40 transition-all duration-200 group hover:shadow-lg"
+                className="bg-glass border border-line rounded-2xl p-6 lg:p-7 relative flex flex-col justify-between hover:border-signal/40 transition-all duration-200 group hover:shadow-xl"
               >
                 <div>
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="w-12 h-12 rounded-xl bg-signal/10 border border-signal/20 text-signal flex items-center justify-center group-hover:scale-105 transition-transform">
-                      <Icon className="w-6 h-6" />
+                  {/* Step Header */}
+                  <div className="flex items-center justify-between mb-5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-lg bg-signal/10 border border-signal/20 text-signal flex items-center justify-center group-hover:scale-105 transition-transform">
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <span className="text-xs font-semibold uppercase tracking-wider text-signal/90 font-mono">
+                        Step {s.step}
+                      </span>
                     </div>
-                    <span className="font-mono text-2xl font-bold text-muted/30 group-hover:text-signal/40 transition-colors">
-                      {s.step}
+                    <span className="font-mono text-xs font-medium px-2 py-0.5 rounded border border-line/60 bg-ink/40 text-muted">
+                      {s.tag}
                     </span>
                   </div>
 
-                  <h3 className="text-lg font-semibold text-chalk mb-2.5 tracking-tight">{s.title}</h3>
-                  <p className="text-sm text-muted leading-relaxed">{s.description}</p>
+                  {/* Sequential App Illustration */}
+                  <div className="mb-5 rounded-xl overflow-hidden border border-line/70 bg-ink/70 aspect-[16/10] relative group-hover:border-signal/30 transition-colors shadow-inner">
+                    <img
+                      src={s.image}
+                      alt={s.imageAlt}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                      loading="lazy"
+                    />
+                  </div>
+
+                  <h3 className="text-lg font-semibold text-chalk mb-2 tracking-tight">{s.title}</h3>
+                  <p className="text-xs sm:text-sm text-muted leading-relaxed">{s.description}</p>
                 </div>
 
-                <div className="mt-6 pt-4 border-t border-line/60 flex items-center justify-between">
-                  <span className="text-xs font-medium text-signal">{s.tag}</span>
-                  {idx < 2 && (
-                    <ArrowRight className="w-4 h-4 text-muted/40 hidden md:block group-hover:text-signal group-hover:translate-x-1 transition-all" />
+                <div className="mt-6 pt-4 border-t border-line/60 flex items-center justify-between text-xs text-muted">
+                  <span className="font-mono text-[11px] text-muted/70">FAST &amp; PRIVATE</span>
+                  {idx < 2 ? (
+                    <div className="flex items-center gap-1 text-signal font-medium text-xs group-hover:translate-x-0.5 transition-transform">
+                      <span>Next</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </div>
+                  ) : (
+                    <span className="text-signal font-semibold text-xs">Ready</span>
                   )}
                 </div>
               </div>
