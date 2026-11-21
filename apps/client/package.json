@@ -13,7 +13,7 @@
     "@conversio/shared": "*",
     "@fontsource/instrument-serif": "^5.3.0",
     "clsx": "^2.1.1",
-    "fabric": "^5.3.0",
+    "fabric": "^7.4.0",
     "geist": "^1.9.2",
     "lucide-react": "^0.475.0",
     "next": "^15.1.7",
@@ -23,7 +23,6 @@
     "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {
-    "@types/fabric": "^5.3.9",
     "@types/node": "^22.10.7",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
@@ -31,5 +30,8 @@
     "postcss": "^8.5.1",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.3"
+  },
+  "overrides": {
+    "postcss": "^8.5.33"
   }
 }

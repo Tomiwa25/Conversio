@@ -71,8 +71,7 @@ export const Whiteboard: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
 
     const initFabric = async () => {
       // Dynamic import to avoid SSR 'window is not defined'
-      const fabricModule = await import('fabric');
-      const fabric = (fabricModule as any).fabric || fabricModule;
+      const { Canvas, PencilBrush, FabricObject } = await import('fabric');
 
       if (!canvasRef.current || fabricCanvasRef.current) return;
 
@@ -81,7 +80,7 @@ export const Whiteboard: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
       const height = container ? container.clientHeight - 80 : 600;
 
       // Create Fabric Canvas with memory-conscious settings
-      canvas = new fabric.Canvas(canvasRef.current, {
+      canvas = new Canvas(canvasRef.current, {
         isDrawingMode: true,
         width,
         height,
@@ -91,14 +90,12 @@ export const Whiteboard: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
       });
 
       // Memory optimization: Disable unnecessary caching on frequent drawing strokes
-      if (fabric.Object) {
-        fabric.Object.prototype.objectCaching = false;
-      }
+      FabricObject.ownDefaults.objectCaching = false;
 
       fabricCanvasRef.current = canvas;
 
       // Configure default pen brush
-      canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+      canvas.freeDrawingBrush = new PencilBrush(canvas);
       canvas.freeDrawingBrush.color = strokeColor;
       canvas.freeDrawingBrush.width = strokeWidth;
 
@@ -160,10 +157,19 @@ export const Whiteboard: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
       isRemoteLoadingRef.current = true;
 
       // Built-in Fabric.js JSON import function: loadFromJSON
-      canvas.loadFromJSON(payload.snapshot, () => {
+      const loadPromise = canvas.loadFromJSON(payload.snapshot);
+      if (loadPromise && typeof loadPromise.then === 'function') {
+        loadPromise.then(() => {
+          canvas.renderAll();
+          isRemoteLoadingRef.current = false;
+        }).catch((err: any) => {
+          console.error('[Whiteboard] Error loading snapshot:', err);
+          isRemoteLoadingRef.current = false;
+        });
+      } else {
         canvas.renderAll();
         isRemoteLoadingRef.current = false;
-      });
+      }
     });
 
     const unsubPointer = manager.onPointer((pointer: WhiteboardPointer) => {
@@ -188,22 +194,21 @@ export const Whiteboard: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
 
-    const fabricModule = await import('fabric');
-    const fabric = (fabricModule as any).fabric || fabricModule;
+    const { PencilBrush } = await import('fabric');
 
     if (tool === 'pen') {
       canvas.isDrawingMode = true;
-      canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+      canvas.freeDrawingBrush = new PencilBrush(canvas);
       canvas.freeDrawingBrush.color = strokeColor;
       canvas.freeDrawingBrush.width = strokeWidth;
     } else if (tool === 'highlighter') {
       canvas.isDrawingMode = true;
-      canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+      canvas.freeDrawingBrush = new PencilBrush(canvas);
       canvas.freeDrawingBrush.color = 'rgba(250, 204, 21, 0.35)'; // Semitransparent yellow
       canvas.freeDrawingBrush.width = 18;
     } else if (tool === 'eraser') {
       canvas.isDrawingMode = true;
-      canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+      canvas.freeDrawingBrush = new PencilBrush(canvas);
       canvas.freeDrawingBrush.color = '#0f172a'; // Match dark background
       canvas.freeDrawingBrush.width = 24;
     } else {
@@ -218,12 +223,11 @@ export const Whiteboard: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
 
-    const fabricModule = await import('fabric');
-    const fabric = (fabricModule as any).fabric || fabricModule;
+    const { Rect, Ellipse } = await import('fabric');
 
     let shape;
     if (type === 'rectangle') {
-      shape = new fabric.Rect({
+      shape = new Rect({
         left: 200,
         top: 150,
         fill: 'transparent',
@@ -235,7 +239,7 @@ export const Whiteboard: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
         cornerSize: 8,
       });
     } else {
-      shape = new fabric.Ellipse({
+      shape = new Ellipse({
         left: 200,
         top: 150,
         rx: 80,
